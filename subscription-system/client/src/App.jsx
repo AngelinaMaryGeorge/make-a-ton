@@ -184,11 +184,24 @@ function AppContent() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar currentView={currentView} onViewChange={setCurrentView} />
 
-      <div style={{ display: 'flex', flex: 1, maxWidth: '1440px', width: '100%', margin: '0 auto' }}>
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        maxWidth: '1440px',
+        width: '100%',
+        margin: '0 auto',
+        paddingTop: isAuthPage ? 0 : '1.25rem'
+      }}>
         {!isAuthPage && user && (
           <Sidebar currentView={currentView} onViewChange={setCurrentView} />
         )}
-        <main style={{ flex: 1, minWidth: 0, paddingRight: '1rem' }}>
+        <main style={{
+          flex: 1,
+          minWidth: 0,
+          paddingRight: isAuthPage ? 0 : '1.25rem',
+          paddingBottom: '2.5rem',
+          overflowX: 'hidden'
+        }}>
           {renderView()}
         </main>
       </div>

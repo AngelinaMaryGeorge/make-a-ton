@@ -1,19 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { reportingService } from '../../api/reportingService';
-import { StatCard, StatusBadge } from '../../components/common/UIComponents';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  DollarSign, 
-  AlertTriangle, 
-  Clock, 
-  Calendar, 
-  Users, 
-  ArrowUpRight, 
-  Layers, 
-  Zap, 
-  CheckCircle2, 
-  RefreshCw 
+import { StatCard, StatusBadge, LoadingBlock } from '../../components/common/UIComponents';
+import {
+  TrendingUp, DollarSign, AlertTriangle, Layers, Zap,
+  CheckCircle2, RefreshCw, BarChart3
 } from 'lucide-react';
 
 export const FinanceDashboard = ({ onViewChange }) => {
@@ -36,146 +26,117 @@ export const FinanceDashboard = ({ onViewChange }) => {
     }
   };
 
-  useEffect(() => {
-    loadMetrics();
-  }, []);
+  useEffect(() => { loadMetrics(); }, []);
 
   return (
-    <div style={{ padding: '0 1rem 2.5rem 1rem' }}>
-      {/* Header with High-Performance SLA Badge */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.75rem' }}>
+    <div style={{ padding: '0 1rem 2rem 0.25rem' }}>
+
+      {/* Header */}
+      <div className="page-header animate-fade-in-up">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Finance Executive Dashboard</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <h1 className="page-title">Finance Dashboard</h1>
             <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#34d399',
-              fontSize: '0.6875rem',
-              fontWeight: 700,
-              padding: '0.2rem 0.5rem',
-              borderRadius: '9999px'
+              display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+              background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.28)',
+              color: '#34d399', fontSize: '0.6875rem', fontWeight: 700,
+              padding: '0.2rem 0.55rem', borderRadius: '9999px'
             }}>
-              <Zap size={12} />
-              {meta ? `${meta.executionTimeMs}ms Response (SLA <2s)` : 'Sub-Second SLA'}
+              <Zap size={11} />
+              {meta ? `${meta.executionTimeMs}ms` : 'Live'}
             </span>
           </div>
-          <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.2rem' }}>
-            Month-end financial metrics, recurring revenue analytics, and aging overdue receivables
+          <p className="page-subtitle">
+            MRR/ARR analytics, overdue receivables, and real-time payment feed
           </p>
         </div>
-
-        <button
-          onClick={loadMetrics}
-          className="btn btn-secondary"
-          style={{ fontSize: '0.8125rem', padding: '0.5rem 0.85rem' }}
-        >
-          <RefreshCw size={14} />
-          <span>Refresh Financials</span>
+        <button onClick={loadMetrics} className="btn btn-secondary btn-sm" disabled={loading}>
+          <RefreshCw size={13} style={{ animation: loading ? 'spin 0.65s linear infinite' : 'none' }} />
+          <span>Refresh</span>
         </button>
       </div>
 
       {loading && !metrics ? (
-        <div style={{ padding: '4rem', textAlign: 'center', color: '#94a3b8' }}>
-          Crunching financial summary...
-        </div>
+        <LoadingBlock message="Crunching financial data..." />
       ) : (
         <>
-          {/* Top KPI Cards Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
+          {/* KPI Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.1rem', marginBottom: '1.75rem' }}>
             <StatCard
-              title="Monthly Recurring Revenue (MRR)"
+              title="Monthly Recurring Revenue"
               value={`$${metrics?.mrr?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              subtitle={`ARR Run-Rate: $${metrics?.arr?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              subtitle={`ARR: $${metrics?.arr?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
               icon={TrendingUp}
               color="#6366f1"
               trend="+14.2% from prior period"
+              trendUp={true}
             />
             <StatCard
               title="Total Cash Collected"
               value={`$${metrics?.total_revenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              subtitle={`${metrics?.paid_invoices_count || 0} invoices paid in full`}
+              subtitle={`${metrics?.paid_invoices_count || 0} invoices paid`}
               icon={DollarSign}
               color="#10b981"
             />
             <StatCard
-              title="Active Recurring Subscriptions"
+              title="Active Subscriptions"
               value={metrics?.active_subscriptions || 0}
-              subtitle={`${metrics?.paused_subscriptions || 0} paused • ${metrics?.draft_subscriptions || 0} pending`}
+              subtitle={`${metrics?.paused_subscriptions || 0} paused · ${metrics?.draft_subscriptions || 0} pending`}
               icon={Layers}
               color="#38bdf8"
             />
             <StatCard
               title="Overdue Receivables"
               value={`$${metrics?.overdue_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              subtitle={`${metrics?.overdue_invoices_count || 0} invoices past payment terms`}
+              subtitle={`${metrics?.overdue_invoices_count || 0} overdue invoices`}
               icon={AlertTriangle}
               color="#ef4444"
+              trend={metrics?.overdue_invoices_count > 0 ? 'Requires immediate action' : undefined}
+              trendUp={false}
             />
           </div>
 
-          {/* Plan Breakdown & Aging Overdue Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem', marginBottom: '1.75rem' }}>
-            {/* Overdue Receivables Chasing Box */}
+          {/* Two-column panels */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+
+            {/* Overdue Invoices */}
             <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f87171' }}>
-                  <AlertTriangle size={18} />
-                  <span>Action Required: Overdue Invoices</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem' }}>
+                <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fca5a5' }}>
+                  <AlertTriangle size={16} />
+                  Overdue Invoices
                 </h3>
-                <button
-                  onClick={() => onViewChange('invoice-list')}
-                  style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
-                >
+                <button onClick={() => onViewChange('invoice-list')} style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
                   View All ({metrics?.overdue_invoices_count || 0})
                 </button>
               </div>
 
               {metrics?.overdue_invoices?.length === 0 ? (
-                <div style={{ padding: '1.5rem', textAlign: 'center', color: '#10b981', fontWeight: 600 }}>
-                  <CheckCircle2 size={32} style={{ margin: '0 auto 0.5rem auto' }} />
-                  <div>No overdue invoices! Receivables are healthy.</div>
+                <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#34d399' }}>
+                  <CheckCircle2 size={36} style={{ margin: '0 auto 0.5rem' }} />
+                  <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>All receivables are current</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>No overdue invoices</div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {metrics?.overdue_invoices?.map((inv) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {metrics?.overdue_invoices?.map(inv => (
                     <div key={inv.id} style={{
                       padding: '0.85rem 1rem',
-                      backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      background: 'rgba(239,68,68,0.07)',
+                      border: '1px solid rgba(239,68,68,0.18)',
                       borderRadius: '0.5rem',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                     }}>
                       <div>
-                        <div style={{ fontWeight: 700, color: '#f8fafc' }}>
-                          {inv.invoice_number} — {inv.customer_name}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginTop: '0.15rem' }}>
-                          Company: {inv.customer_company || 'Direct'} • Due: <strong style={{ color: '#f87171' }}>{inv.due_date}</strong>
+                        <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#f1f5f9' }}>{inv.invoice_number} — {inv.customer_name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+                          Due: <strong style={{ color: '#f87171' }}>{inv.due_date}</strong>
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800, color: '#f87171', fontSize: '1rem' }}>
-                          ${inv.amount_due.toFixed(2)}
-                        </div>
-                        <button
-                          onClick={() => onViewChange('payment-recording')}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#38bdf8',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            marginTop: '0.2rem'
-                          }}
-                        >
-                          Record Payment →
+                        <div style={{ fontWeight: 800, color: '#f87171' }}>${inv.amount_due.toFixed(2)}</div>
+                        <button onClick={() => onViewChange('payment-recording')} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', marginTop: '0.15rem' }}>
+                          Record →
                         </button>
                       </div>
                     </div>
@@ -184,37 +145,24 @@ export const FinanceDashboard = ({ onViewChange }) => {
               )}
             </div>
 
-            {/* Plan Distribution Breakdown */}
+            {/* Plan Breakdown */}
             <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Layers size={18} color="#6366f1" />
-                <span>Active Plans Revenue Contribution</span>
+              <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.1rem' }}>
+                <Layers size={16} color="#6366f1" />
+                Plans Revenue Contribution
               </h3>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {metrics?.plan_breakdown?.map((plan, i) => (
-                  <div key={i} style={{
-                    padding: '0.85rem 1rem',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '0.5rem',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
+                  <div key={i} className="list-item">
                     <div>
-                      <div style={{ fontWeight: 700, color: '#f8fafc' }}>{plan.plan_name}</div>
-                      <span className="badge badge-quotation" style={{ marginTop: '0.25rem', textTransform: 'capitalize' }}>
-                        {plan.billing_frequency}
-                      </span>
+                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#f1f5f9' }}>{plan.plan_name}</div>
+                      <span className="badge badge-quotation" style={{ marginTop: '0.25rem', textTransform: 'capitalize' }}>{plan.billing_frequency}</span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 800, color: '#34d399' }}>
-                        {plan.count} subscription{plan.count === 1 ? '' : 's'}
+                      <div style={{ fontWeight: 800, color: '#34d399', fontSize: '0.875rem' }}>
+                        {plan.count} sub{plan.count !== 1 ? 's' : ''}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
-                        Base: ${plan.total_value.toFixed(2)}
-                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>${plan.total_value.toFixed(2)}</div>
                     </div>
                   </div>
                 ))}
@@ -222,19 +170,18 @@ export const FinanceDashboard = ({ onViewChange }) => {
             </div>
           </div>
 
-          {/* Recent Cash Inflows Feed */}
+          {/* Payment Feed */}
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <DollarSign size={18} color="#10b981" />
-              <span>Real-Time Payment Feed</span>
+            <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <DollarSign size={16} color="#10b981" />
+              Real-Time Payment Feed
             </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.85rem' }}>
-              {metrics?.recent_payments?.map((pay) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.75rem' }}>
+              {metrics?.recent_payments?.map(pay => (
                 <div key={pay.id} style={{
-                  padding: '0.85rem 1rem',
-                  backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  padding: '0.875rem 1rem',
+                  background: 'rgba(16,185,129,0.06)',
+                  border: '1px solid rgba(16,185,129,0.18)',
                   borderRadius: '0.5rem'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -243,11 +190,11 @@ export const FinanceDashboard = ({ onViewChange }) => {
                     </span>
                     <strong style={{ color: '#10b981', fontSize: '0.9375rem' }}>+${pay.amount.toFixed(2)}</strong>
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#cbd5e1', marginTop: '0.35rem' }}>
+                  <div style={{ fontSize: '0.8125rem', color: '#94a3b8', marginTop: '0.3rem' }}>
                     {pay.customer_name} ({pay.invoice_number})
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', textTransform: 'capitalize' }}>
-                    {pay.method?.replace('_', ' ')} • {new Date(pay.payment_date).toLocaleDateString()}
+                  <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.2rem', textTransform: 'capitalize' }}>
+                    {pay.method?.replace('_', ' ')} · {new Date(pay.payment_date).toLocaleDateString()}
                   </div>
                 </div>
               ))}
