@@ -1,4 +1,4 @@
-﻿Subscription Management System
+#﻿Subscription Management System
 
 A unified subscription management platform for Brightloop Software,
 developed for the Odoo x Make-A-Ton 9.0 Kochi Hackathon 2026.
