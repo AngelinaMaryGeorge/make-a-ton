@@ -19,6 +19,7 @@ Conforms strictly to the hackathon project specification:
 ```
 root-directory/
 ├── .env.example                      # Template for environment variables (DB credentials, JWT secret, Port)
+                                         you are to create a .env based on this
 ├── .gitignore                        # Untracked files (node_modules, .env, build outputs, *.db)
 ├── package.json                      # Root workspace configuration and unified start scripts
 ├── README.md                         # Project documentation, setup instructions, and architecture
