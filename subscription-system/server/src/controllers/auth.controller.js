@@ -29,9 +29,9 @@ const AuthController = {
 
       // Only an authenticated admin can create a staff member
       let assignedRole = 'customer';
-      if (role && role.toLowerCase() === 'staff') {
+      if (role && (role.toLowerCase() === 'staff' || role.toLowerCase() === 'business')) {
         if (!req.user || req.user.role !== 'admin') {
-          return res.status(403).json({ success: false, message: 'Only administrators can create staff accounts' });
+          return res.status(403).json({ success: false, message: 'Only administrators can create staff/business accounts' });
         }
         assignedRole = 'staff';
       }
@@ -121,7 +121,6 @@ const AuthController = {
 
       const user = await CustomerModel.findByEmail(email);
       if (!user) {
-        // Return 200 for security to prevent user enumeration
         return res.status(200).json({
           success: true,
           message: 'If the email exists, a password reset link has been generated.'
@@ -129,7 +128,7 @@ const AuthController = {
       }
 
       const resetToken = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 3600000).toISOString(); // 1 hour
+      const expiresAt = new Date(Date.now() + 3600000).toISOString();
 
       await CustomerModel.updateResetToken(email, resetToken, expiresAt);
 
@@ -243,6 +242,66 @@ const AuthController = {
     } catch (err) {
       console.error('Staff creation error:', err);
       return res.status(500).json({ success: false, message: 'Internal server error during staff creation' });
+    }
+  },
+
+  /**
+   * Business & Admin: List all client accounts with stats
+   */
+  async getClients(req, res) {
+    try {
+      const clients = await CustomerModel.getClientsWithStats();
+      return res.status(200).json({ success: true, clients });
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  },
+
+  /**
+   * Business & Admin: Onboard/Create a new client account
+   */
+  async createClient(req, res) {
+    try {
+      const { name, email, password, company, phone } = req.body;
+
+      if (!name || !email) {
+        return res.status(400).json({ success: false, message: 'Name and email are required' });
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ success: false, message: 'Valid email address is required' });
+      }
+
+      const existing = await CustomerModel.findByEmail(email.trim());
+      if (existing) {
+        return res.status(409).json({ success: false, message: 'A client with this email already exists' });
+      }
+
+      const initialPassword = password || 'SecurePass1!';
+      const passwordCheck = validatePassword(initialPassword);
+      if (!passwordCheck.valid) {
+        return res.status(400).json({ success: false, message: passwordCheck.message });
+      }
+
+      const passwordHash = await bcrypt.hash(initialPassword, 10);
+      const client = await CustomerModel.create({
+        name: name.trim(),
+        email: email.trim(),
+        passwordHash,
+        role: 'customer',
+        company: (company || '').trim(),
+        phone: (phone || '').trim()
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Client account onboarded successfully',
+        client
+      });
+    } catch (err) {
+      console.error('Error onboarding client:', err);
+      return res.status(500).json({ success: false, message: 'Internal server error creating client' });
     }
   }
 };

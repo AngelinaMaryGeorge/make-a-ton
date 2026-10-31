@@ -27,11 +27,12 @@ This platform replaces messy spreadsheets, missed renewals, manual invoice draft
 - **Generate and manage invoices**: Trigger automated billing cycles, create manual invoices, and inspect line items, taxes, and due dates.
 - **Track payments and revenue**: Reconcile incoming transactions, review payment methods, and monitor executive MRR/ARR finance dashboards (<2s SLA).
 
-#### **Staff can:**
-- **Manage customer accounts**: Review customer accounts and subscription statuses.
-- **Create quotations**: Pick from reusable templates or build custom quotations with real-time tax and price calculations.
-- **Manage subscriptions**: Convert confirmed quotes into active subscriptions, pause/resume, or renew subscriptions.
-- **Handle invoices and payments**: Generate invoices on billing days, record incoming customer payments against outstanding balances, and track payment receipts according to role permissions.
+#### **Business Users can:**
+- **Business Operations Dashboard**: High-level visibility into total managed clients, active client subscriptions, outstanding receivables, and collected revenue.
+- **Manage Clients**: View client accounts, filter and search by corporate identity, and onboard new clients with contact and company credentials.
+- **Manage Client Subscriptions**: View all subscriptions filtered by client or status, create new recurring plans, and trigger lifecycle actions (pause, resume, renew, or close).
+- **Create Quotations**: Pick from reusable templates or build custom quotations with Odoo brand variant modifiers (+560), 18% GST calculation, and 1-click conversion to active subscriptions.
+- **Handle Invoices and Payments**: Generate invoices on billing days, record incoming customer payments against outstanding balances, and track payment receipts according to role permissions.
 
 ---
 
@@ -257,7 +258,7 @@ The database comes pre-seeded with 3 roles ready for testing:
 | Role | Email | Password | Access Privileges |
 | :--- | :--- | :--- | :--- |
 | **System Admin** | `admin@brightloop.com` | `AdminPass1!` | Full platform control, products, variants, plans, discounts, staff provisioning, and finance |
-| **Internal Staff** | `staff@brightloop.com` | `SecurePass1!` | Day-to-day operations: quotes, subscriptions, billing day invoice generation, payment recording |
+| **Business Account** | `staff@brightloop.com` | `SecurePass1!` | Business Operations: Dedicated dashboard, client management, client subscriptions, quotes, billing day, and payment reconciliation |
 | **Customer** | `customer@example.com` | `SecurePass1!` | Self-service portal: browse plans, subscribe, view active subscriptions, pause/resume, view and print receipts |
 
 *(Quick demo buttons are also provided directly on the Login screen for instant 1-click testing)*

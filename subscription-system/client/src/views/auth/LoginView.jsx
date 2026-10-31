@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../api/authService';
-import { Lock, Mail, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Sparkles, Building2, Briefcase } from 'lucide-react';
 
 export const LoginView = ({ onViewChange }) => {
   const { login } = useAuth();
@@ -21,6 +21,8 @@ export const LoginView = ({ onViewChange }) => {
         login(res.token, res.user);
         if (res.role === 'customer') {
           onViewChange('customer-dashboard');
+        } else if (res.role === 'staff' || res.role === 'business') {
+          onViewChange('business-dashboard');
         } else {
           onViewChange('finance-dashboard');
         }
@@ -36,7 +38,7 @@ export const LoginView = ({ onViewChange }) => {
     if (demoRole === 'admin') {
       setEmail('admin@brightloop.com');
       setPassword('AdminPass1!');
-    } else if (demoRole === 'staff') {
+    } else if (demoRole === 'business') {
       setEmail('staff@brightloop.com');
       setPassword('SecurePass1!');
     } else {
@@ -65,7 +67,7 @@ export const LoginView = ({ onViewChange }) => {
           </div>
           <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Welcome Back</h2>
           <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Sign in to access Brightloop Subscription Core
+            Sign in to access Brightloop Subscription Management
           </p>
         </div>
 
@@ -86,7 +88,7 @@ export const LoginView = ({ onViewChange }) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-              Work Email
+              Account Email
             </label>
             <div style={{ position: 'relative' }}>
               <input
@@ -138,32 +140,38 @@ export const LoginView = ({ onViewChange }) => {
         <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1.25rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <Sparkles size={14} color="#818cf8" />
-            <span>Fast Hackathon Demo Logins</span>
+            <span>1-Click Fast Persona Demo Sign-in</span>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
               type="button"
               onClick={() => fillQuickDemo('admin')}
               className="btn btn-secondary"
-              style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem 0.5rem' }}
+              style={{ flex: 1, fontSize: '0.75rem', padding: '0.5rem 0.4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}
+              title="admin@brightloop.com"
             >
-              Admin
+              <span style={{ fontWeight: 700, color: '#f8fafc' }}>Admin</span>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>System Lead</span>
             </button>
             <button
               type="button"
-              onClick={() => fillQuickDemo('staff')}
+              onClick={() => fillQuickDemo('business')}
               className="btn btn-secondary"
-              style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem 0.5rem' }}
+              style={{ flex: 1.2, fontSize: '0.75rem', padding: '0.5rem 0.4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', borderColor: 'rgba(99, 102, 241, 0.4)', backgroundColor: 'rgba(99, 102, 241, 0.1)' }}
+              title="staff@brightloop.com (Business Account)"
             >
-              Staff
+              <span style={{ fontWeight: 700, color: '#a5b4fc' }}>Business</span>
+              <span style={{ fontSize: '0.65rem', color: '#818cf8' }}>Clients & Subscriptions</span>
             </button>
             <button
               type="button"
               onClick={() => fillQuickDemo('customer')}
               className="btn btn-secondary"
-              style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem 0.5rem' }}
+              style={{ flex: 1, fontSize: '0.75rem', padding: '0.5rem 0.4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}
+              title="customer@example.com"
             >
-              Customer
+              <span style={{ fontWeight: 700, color: '#f8fafc' }}>Customer</span>
+              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>Self-Service</span>
             </button>
           </div>
         </div>
