@@ -63,3 +63,91 @@ CREATE TABLE payments (
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT
 );
+
+-- 7. Product Variants Table (e.g., Brand: Odoo adds 560)
+CREATE TABLE product_variants (
+    id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(id) ON DELETE CASCADE,
+    attribute_name VARCHAR(100) NOT NULL, -- e.g., 'brand'
+    attribute_value VARCHAR(100) NOT NULL, -- e.g., 'Odoo'
+    price_modifier DECIMAL(12,2) DEFAULT 0.00
+);
+
+
+-- 8. Subscription Items Table
+CREATE TABLE subscription_items (
+    id SERIAL PRIMARY KEY,
+    subscription_id INT REFERENCES subscriptions(id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(id),
+    variant_id INT REFERENCES product_variants(id), -- Nullable if no variant
+    quantity INT DEFAULT 1,
+    unit_price DECIMAL(12,2) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL
+);
+
+-- 9. Invoice Items Table
+CREATE TABLE invoice_items (
+    id SERIAL PRIMARY KEY,
+    invoice_id INT REFERENCES invoices(id) ON DELETE CASCADE,
+    description VARCHAR(255) NOT NULL,
+    quantity INT DEFAULT 1,
+    unit_price DECIMAL(12,2) NOT NULL,
+    tax_rate DECIMAL(5,2) DEFAULT 0.00,
+    total_amount DECIMAL(12,2) NOT NULL
+);
+
+-- 10. Quotation Templates Table
+CREATE TABLE quotation_templates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    plan_id INT REFERENCES plans(id),
+    valid_days INT DEFAULT 30,
+    description TEXT,
+    default_lines JSONB -- Stores default product mixes
+);
+
+-- 11. Quotes Table
+CREATE TABLE quotes (
+    id SERIAL PRIMARY KEY,
+    quote_number VARCHAR(50) UNIQUE NOT NULL,
+    customer_id INT REFERENCES customers(id),
+    template_id INT REFERENCES quotation_templates(id),
+    status VARCHAR(50) CHECK (status IN ('Quotation', 'Confirmed', 'Expired')),
+    valid_days INT DEFAULT 30,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 12. Quote Items Table
+CREATE TABLE quote_items (
+    id SERIAL PRIMARY KEY,
+    quote_id INT REFERENCES quotes(id) ON DELETE CASCADE,
+    product_id INT REFERENCES products(id),
+    variant_id INT REFERENCES product_variants(id),
+    quantity INT DEFAULT 1,
+    unit_price DECIMAL(12,2) NOT NULL,
+    amount DECIMAL(12,2) NOT NULL
+);
+
+-- 13. Discounts Table
+CREATE TABLE discounts (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) CHECK (type IN ('fixed', 'percentage')),
+    amount DECIMAL(12,2) NOT NULL,
+    min_purchase DECIMAL(12,2) DEFAULT 0.00,
+    min_quantity INT DEFAULT 1,
+    usage_limit INT,
+    used_count INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    start_date DATE,
+    end_date DATE
+);
+
+-- 14. Tax Rules Table
+CREATE TABLE tax_rules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    rate DECIMAL(5,2) NOT NULL, -- e.g., 18.00 for 18%
+    is_default BOOLEAN DEFAULT FALSE
+);
