@@ -1,4 +1,18 @@
-require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from any possible location (server folder, parent, or root)
+[
+  path.resolve(__dirname, '../../../.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../.env'),
+  path.resolve(process.cwd(), '.env')
+].forEach(envPath => {
+  try {
+    dotenv.config({ path: envPath, override: false });
+  } catch (e) {}
+});
+
 const http = require('http');
 const app = require('./app');
 const { initDb } = require('./config/db');

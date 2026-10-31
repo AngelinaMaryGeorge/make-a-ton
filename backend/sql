@@ -7,7 +7,7 @@ CREATE TABLE customers (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Products & Variants Table
+-- Products & Variants Table --
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE products (
     notes TEXT
 );
 
--- Plans Table
+-- Plans Table --
 CREATE TABLE plans (
     id SERIAL PRIMARY KEY,
     product_id INT REFERENCES products(id),

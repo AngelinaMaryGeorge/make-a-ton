@@ -1,5 +1,19 @@
 const fs = require('fs');
 const path = require('path');
+const dotenv = require('dotenv');
+
+// Ensure .env is loaded from workspace root, server dir, or current directory
+[
+  path.resolve(__dirname, '../../../.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../.env'),
+  path.resolve(process.cwd(), '.env')
+].forEach(envPath => {
+  try {
+    dotenv.config({ path: envPath, override: false });
+  } catch (e) {}
+});
+
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -122,6 +136,32 @@ async function seedDefaultSupabaseData() {
           cost_price: 50.00,
           variant_metadata: [{ tier: 'Pro', price_modifier: 150 }],
           notes: 'Advanced business intelligence engine'
+        }
+      ]);
+    }
+
+    // Check if plans exist
+    const { data: plans } = await supabaseClient.from('plans').select('id').limit(1);
+    if (!plans || plans.length === 0) {
+      // Find the first product id
+      const { data: prodList } = await supabaseClient.from('products').select('id').limit(1);
+      const prodId = prodList?.[0]?.id || 1;
+      await supabaseClient.from('plans').insert([
+        {
+          product_id: prodId,
+          billing_frequency: 'monthly',
+          min_quantity: 1,
+          start_date: '2026-01-01',
+          auto_close: false,
+          allow_pause: true
+        },
+        {
+          product_id: prodId,
+          billing_frequency: 'yearly',
+          min_quantity: 1,
+          start_date: '2026-01-01',
+          auto_close: false,
+          allow_pause: true
         }
       ]);
     }

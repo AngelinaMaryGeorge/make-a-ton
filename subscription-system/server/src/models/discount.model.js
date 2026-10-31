@@ -1,7 +1,74 @@
 const db = require('../config/db');
 
+// In-memory store for Supabase mode (as discounts table is not part of the standard 6 Supabase tables)
+let memDiscounts = [
+  {
+    id: 1,
+    code: 'WELCOME10',
+    name: '10% Welcome Discount',
+    type: 'percentage',
+    amount: 10,
+    min_purchase: 0,
+    min_quantity: 1,
+    usage_limit: 500,
+    used_count: 0,
+    start_date: null,
+    end_date: null,
+    applicable_product_id: null,
+    is_active: true
+  },
+  {
+    id: 2,
+    code: 'EARLYBIRD20',
+    name: '20% Early Bird',
+    type: 'percentage',
+    amount: 20,
+    min_purchase: 500,
+    min_quantity: 2,
+    usage_limit: 100,
+    used_count: 0,
+    start_date: null,
+    end_date: null,
+    applicable_product_id: null,
+    is_active: true
+  },
+  {
+    id: 3,
+    code: 'ODOO50',
+    name: '$50 Flat Promo',
+    type: 'fixed',
+    amount: 50,
+    min_purchase: 200,
+    min_quantity: 1,
+    usage_limit: 100,
+    used_count: 0,
+    start_date: null,
+    end_date: null,
+    applicable_product_id: null,
+    is_active: true
+  },
+  {
+    id: 4,
+    code: 'GROWTH15',
+    name: '15% Growth Discount',
+    type: 'percentage',
+    amount: 15,
+    min_purchase: 2000,
+    min_quantity: 5,
+    usage_limit: 100,
+    used_count: 0,
+    start_date: null,
+    end_date: null,
+    applicable_product_id: null,
+    is_active: true
+  }
+];
+
 const DiscountModel = {
   async getAll() {
+    if (db.isSupabase()) {
+      return memDiscounts.map(d => ({ ...d }));
+    }
     const res = await db.query(`
       SELECT d.*, p.name as applicable_product_name
       FROM discounts d
@@ -17,6 +84,10 @@ const DiscountModel = {
   },
 
   async findById(id) {
+    if (db.isSupabase()) {
+      const found = memDiscounts.find(d => d.id === Number(id));
+      return found ? { ...found } : null;
+    }
     const res = await db.query('SELECT * FROM discounts WHERE id = $1', [id]);
     if (res.rows.length === 0) return null;
     const r = res.rows[0];
@@ -30,7 +101,12 @@ const DiscountModel = {
 
   async findByCode(code) {
     if (!code) return null;
-    const res = await db.query('SELECT * FROM discounts WHERE code = $1 AND is_active = 1', [code.trim().toUpperCase()]);
+    const normalized = code.trim().toUpperCase();
+    if (db.isSupabase()) {
+      const found = memDiscounts.find(d => d.code === normalized && d.is_active);
+      return found ? { ...found } : null;
+    }
+    const res = await db.query('SELECT * FROM discounts WHERE code = $1 AND is_active = 1', [normalized]);
     if (res.rows.length === 0) return null;
     const r = res.rows[0];
     return {
@@ -50,6 +126,26 @@ const DiscountModel = {
     let discountName = name;
     if (!discountName) {
       discountName = type === 'percentage' ? `${amount}% Discount Rule` : `$${amount} Flat Discount Rule`;
+    }
+
+    if (db.isSupabase()) {
+      const newDisc = {
+        id: memDiscounts.length > 0 ? Math.max(...memDiscounts.map(d => d.id)) + 1 : 1,
+        code: discountCode.toUpperCase(),
+        name: discountName,
+        type,
+        amount: parseFloat(amount),
+        min_purchase: parseFloat(min_purchase || 0),
+        min_quantity: parseInt(min_quantity || 0, 10),
+        usage_limit: parseInt(usage_limit || 100, 10),
+        used_count: 0,
+        start_date,
+        end_date,
+        applicable_product_id,
+        is_active: true
+      };
+      memDiscounts.push(newDisc);
+      return { ...newDisc };
     }
 
     const res = await db.query(`
@@ -72,6 +168,16 @@ const DiscountModel = {
   },
 
   async incrementUsage(id) {
+    if (db.isSupabase()) {
+      const item = memDiscounts.find(d => d.id === Number(id));
+      if (item) {
+        item.used_count += 1;
+        if (item.used_count >= item.usage_limit) {
+          item.is_active = false;
+        }
+      }
+      return;
+    }
     await db.query(`
       UPDATE discounts 
       SET used_count = used_count + 1,
