@@ -26,10 +26,18 @@ import { MyInvoicesView } from './views/customer-portal/MyInvoicesView';
 
 import { FinanceDashboard } from './views/finance/FinanceDashboard';
 
+// Business Views
+import { BusinessDashboard } from './views/business/BusinessDashboard';
+import { ClientManagementView } from './views/business/ClientManagementView';
+import { ClientSubscriptionsView } from './views/business/ClientSubscriptionsView';
+
 function AppContent() {
   const { user, isCustomer } = useAuth();
   const [currentView, setCurrentView] = useState(() => {
-    return user ? (user.role === 'customer' ? 'customer-dashboard' : 'finance-dashboard') : 'login';
+    if (!user) return 'login';
+    if (user.role === 'customer') return 'customer-dashboard';
+    if (user.role === 'staff' || user.role === 'business') return 'business-dashboard';
+    return 'business-dashboard';
   });
 
   // Switch initial view automatically when user logs in or out
@@ -40,7 +48,13 @@ function AppContent() {
       }
     } else {
       if (['login', 'register', 'forgot-password'].includes(currentView)) {
-        setCurrentView(user.role === 'customer' ? 'customer-dashboard' : 'finance-dashboard');
+        if (user.role === 'customer') {
+          setCurrentView('customer-dashboard');
+        } else if (user.role === 'staff' || user.role === 'business') {
+          setCurrentView('business-dashboard');
+        } else {
+          setCurrentView('business-dashboard');
+        }
       }
     }
   }, [user]);
@@ -55,10 +69,32 @@ function AppContent() {
       case 'forgot-password':
         return <ForgotPasswordView onViewChange={setCurrentView} />;
 
+      // Business & Operations Views
+      case 'business-dashboard':
+        return (
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
+            <BusinessDashboard onViewChange={setCurrentView} />
+          </ProtectedRoute>
+        );
+
+      case 'client-management':
+        return (
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
+            <ClientManagementView onViewChange={setCurrentView} />
+          </ProtectedRoute>
+        );
+
+      case 'client-subscriptions':
+        return (
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
+            <ClientSubscriptionsView onViewChange={setCurrentView} />
+          </ProtectedRoute>
+        );
+
       // Finance & Overview
       case 'finance-dashboard':
         return (
-          <ProtectedRoute allowedRoles={['admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
             <FinanceDashboard onViewChange={setCurrentView} />
           </ProtectedRoute>
         );
@@ -92,13 +128,13 @@ function AppContent() {
       // Sales Views
       case 'quotation-templates':
         return (
-          <ProtectedRoute allowedRoles={['admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
             <QuotationTemplatesView onViewChange={setCurrentView} />
           </ProtectedRoute>
         );
       case 'quotation-editor':
         return (
-          <ProtectedRoute allowedRoles={['admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
             <QuotationEditorView onViewChange={setCurrentView} />
           </ProtectedRoute>
         );
@@ -106,13 +142,13 @@ function AppContent() {
       // Billing Views
       case 'invoice-list':
         return (
-          <ProtectedRoute allowedRoles={['admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
             <InvoiceListView />
           </ProtectedRoute>
         );
       case 'payment-recording':
         return (
-          <ProtectedRoute allowedRoles={['admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['admin', 'staff', 'business']}>
             <PaymentRecordingView />
           </ProtectedRoute>
         );
@@ -120,25 +156,25 @@ function AppContent() {
       // Customer Portal Views
       case 'customer-dashboard':
         return (
-          <ProtectedRoute allowedRoles={['customer', 'admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['customer', 'admin', 'staff', 'business']}>
             <CustomerDashboard onViewChange={setCurrentView} />
           </ProtectedRoute>
         );
       case 'my-subscriptions':
         return (
-          <ProtectedRoute allowedRoles={['customer', 'admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['customer', 'admin', 'staff', 'business']}>
             <MySubscriptionsView />
           </ProtectedRoute>
         );
       case 'my-invoices':
         return (
-          <ProtectedRoute allowedRoles={['customer', 'admin', 'staff']}>
+          <ProtectedRoute allowedRoles={['customer', 'admin', 'staff', 'business']}>
             <MyInvoicesView />
           </ProtectedRoute>
         );
 
       default:
-        return <FinanceDashboard onViewChange={setCurrentView} />;
+        return <BusinessDashboard onViewChange={setCurrentView} />;
     }
   };
 

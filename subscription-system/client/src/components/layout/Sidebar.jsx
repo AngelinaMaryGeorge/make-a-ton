@@ -12,7 +12,9 @@ import {
   CreditCard, 
   Compass, 
   FolderKanban,
-  FileCheck
+  FileCheck,
+  LayoutDashboard,
+  Shield
 } from 'lucide-react';
 
 export const Sidebar = ({ currentView, onViewChange }) => {
@@ -24,7 +26,24 @@ export const Sidebar = ({ currentView, onViewChange }) => {
     {
       group: 'Overview',
       items: [
+        { id: 'business-dashboard', label: 'Business Dashboard', icon: LayoutDashboard },
         { id: 'finance-dashboard', label: 'Finance Dashboard', icon: BarChart3 }
+      ]
+    },
+    {
+      group: 'Clients & Subscriptions',
+      items: [
+        { id: 'client-management', label: 'Manage Clients', icon: Users },
+        { id: 'client-subscriptions', label: 'Client Subscriptions', icon: FolderKanban },
+        { id: 'quotation-editor', label: 'Quote Builder & Offers', icon: FileEdit },
+        { id: 'quotation-templates', label: 'Quotation Templates', icon: FileText }
+      ]
+    },
+    {
+      group: 'Billing & Cashflow',
+      items: [
+        { id: 'invoice-list', label: 'Invoices Pipeline', icon: Receipt },
+        { id: 'payment-recording', label: 'Payment Reconciliation', icon: CreditCard }
       ]
     },
     {
@@ -33,21 +52,7 @@ export const Sidebar = ({ currentView, onViewChange }) => {
         { id: 'product-catalog', label: 'Products & Variants', icon: Package, adminOnly: true },
         { id: 'plan-management', label: 'Recurring Plans', icon: Layers, adminOnly: true },
         { id: 'discount-rules', label: 'Discount Rules', icon: Percent, adminOnly: true },
-        { id: 'staff-management', label: 'Staff Management', icon: Users, adminOnly: true }
-      ]
-    },
-    {
-      group: 'Sales & Subscriptions',
-      items: [
-        { id: 'quotation-templates', label: 'Quotation Templates', icon: FileText },
-        { id: 'quotation-editor', label: 'Quote Builder & Offers', icon: FileEdit }
-      ]
-    },
-    {
-      group: 'Billing & Cashflow',
-      items: [
-        { id: 'invoice-list', label: 'Invoices Pipeline', icon: Receipt },
-        { id: 'payment-recording', label: 'Payment Reconciliation', icon: CreditCard }
+        { id: 'staff-management', label: 'Staff Management', icon: Shield, adminOnly: true }
       ]
     }
   ];
@@ -103,27 +108,34 @@ export const Sidebar = ({ currentView, onViewChange }) => {
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.75rem',
-                        padding: '0.55rem 0.75rem',
+                        gap: '0.65rem',
+                        width: '100%',
+                        padding: '0.6rem 0.75rem',
                         borderRadius: '0.5rem',
                         border: 'none',
-                        background: isActive ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.1) 100%)' : 'transparent',
-                        color: isActive ? '#ffffff' : '#94a3b8',
+                        background: isActive ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.05) 100%)' : 'transparent',
+                        color: isActive ? '#f8fafc' : '#94a3b8',
                         fontWeight: isActive ? 700 : 500,
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
+                        fontSize: '0.8125rem',
                         textAlign: 'left',
+                        cursor: 'pointer',
                         transition: 'all 0.15s ease',
                         borderLeft: isActive ? '3px solid #6366f1' : '3px solid transparent'
                       }}
                       onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.color = '#ffffff';
+                        if (!isActive) {
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+                          e.currentTarget.style.color = '#e2e8f0';
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        if (!isActive) e.currentTarget.style.color = '#94a3b8';
+                        if (!isActive) {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                          e.currentTarget.style.color = '#94a3b8';
+                        }
                       }}
                     >
-                      <Icon size={18} color={isActive ? '#818cf8' : '#94a3b8'} />
+                      <Icon size={16} color={isActive ? '#818cf8' : '#94a3b8'} />
                       <span>{item.label}</span>
                     </button>
                   );

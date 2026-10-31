@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../api/authService';
 import { Modal } from '../../components/common/UIComponents';
-import { Users, UserPlus, Shield, Mail, Building, CheckCircle2 } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
 export const StaffManagementView = () => {
   const [staffList, setStaffList] = useState([]);

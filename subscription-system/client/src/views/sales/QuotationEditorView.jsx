@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { subscriptionService } from '../../api/subscriptionService';
 import { productService } from '../../api/productService';
+import { authService } from '../../api/authService';
 import { StatusBadge, Modal } from '../../components/common/UIComponents';
-import { FileEdit, Plus, CheckCircle, ArrowRight, Sparkles, Trash2, Zap } from 'lucide-react';
+import { FileEdit, Plus, CheckCircle, ArrowRight, Sparkles, Trash2, Zap, Users } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const QuotationEditorView = ({ onViewChange }) => {
@@ -10,12 +11,13 @@ export const QuotationEditorView = ({ onViewChange }) => {
   const [templates, setTemplates] = useState([]);
   const [plans, setPlans] = useState([]);
   const [products, setProducts] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCreateQuoteOpen, setIsCreateQuoteOpen] = useState(false);
 
   // New quote draft state
   const [quoteDraft, setQuoteDraft] = useState({
-    customer_id: 3, // Default Acme Corp
+    customer_id: '',
     template_id: '',
     plan_id: 1,
     valid_days: 15,
@@ -29,16 +31,23 @@ export const QuotationEditorView = ({ onViewChange }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [qRes, tRes, plRes, prRes] = await Promise.all([
+      const [qRes, tRes, plRes, prRes, cRes] = await Promise.all([
         subscriptionService.getQuotes(),
         subscriptionService.getQuoteTemplates(),
         productService.getPlans(),
-        productService.getProducts()
+        productService.getProducts(),
+        authService.getClients()
       ]);
       if (qRes.success) setQuotes(qRes.quotes);
       if (tRes.success) setTemplates(tRes.templates);
       if (plRes.success) setPlans(plRes.plans);
       if (prRes.success) setProducts(prRes.products);
+      if (cRes.success && cRes.clients) {
+        setClients(cRes.clients);
+        if (cRes.clients.length > 0 && !quoteDraft.customer_id) {
+          setQuoteDraft(prev => ({ ...prev, customer_id: cRes.clients[0].id }));
+        }
+      }
     } catch (err) {
       console.error('Error loading quotes:', err);
     } finally {
@@ -50,79 +59,83 @@ export const QuotationEditorView = ({ onViewChange }) => {
     loadData();
   }, []);
 
-  const handleTemplateSelect = (templateId) => {
-    const tpl = templates.find(t => t.id === parseInt(templateId));
-    if (tpl) {
-      setQuoteDraft(prev => ({
-        ...prev,
-        template_id: tpl.id,
-        plan_id: tpl.plan_id || prev.plan_id,
-        valid_days: tpl.valid_days || 15,
-        notes: tpl.description || '',
-        items: tpl.default_lines && tpl.default_lines.length > 0 ? tpl.default_lines : prev.items
-      }));
-    }
+  const handleApplyTemplate = (tmplId) => {
+    const tmpl = templates.find(t => t.id === parseInt(tmplId));
+    if (!tmpl) return;
+
+    setQuoteDraft({
+      ...quoteDraft,
+      template_id: tmpl.id,
+      plan_id: tmpl.plan_id || quoteDraft.plan_id,
+      valid_days: tmpl.valid_days,
+      items: tmpl.default_lines.length > 0 ? tmpl.default_lines : quoteDraft.items
+    });
   };
 
-  const addItemToDraft = () => {
-    setQuoteDraft(prev => ({
-      ...prev,
+  const handleAddItem = () => {
+    setQuoteDraft({
+      ...quoteDraft,
       items: [
-        ...prev.items,
+        ...quoteDraft.items,
         { product_id: 1, variant_id: null, variant_name: '', quantity: 1, unit_price: 1000.00, tax_rate: 18.00 }
       ]
-    }));
-  };
-
-  const removeItemFromDraft = (index) => {
-    setQuoteDraft(prev => ({
-      ...prev,
-      items: prev.items.filter((_, idx) => idx !== index)
-    }));
-  };
-
-  const handleProductChange = (index, prodId) => {
-    const p = products.find(prod => prod.id === parseInt(prodId));
-    if (!p) return;
-
-    setQuoteDraft(prev => {
-      const updated = [...prev.items];
-      updated[index] = {
-        ...updated[index],
-        product_id: p.id,
-        unit_price: p.sales_price,
-        variant_id: null,
-        variant_name: ''
-      };
-      return { ...prev, items: updated };
     });
   };
 
-  const handleVariantChange = (index, variantId) => {
-    const item = quoteDraft.items[index];
-    const p = products.find(prod => prod.id === item.product_id);
-    if (!p) return;
-
-    const v = p.variants.find(vr => vr.id === parseInt(variantId));
-    const modifier = v ? v.price_modifier : 0;
-    const basePrice = p.sales_price;
-
-    setQuoteDraft(prev => {
-      const updated = [...prev.items];
-      updated[index] = {
-        ...updated[index],
-        variant_id: v ? v.id : null,
-        variant_name: v ? `${v.attribute_value} (+$${v.price_modifier})` : '',
-        unit_price: basePrice + modifier
-      };
-      return { ...prev, items: updated };
-    });
+  const handleRemoveItem = (idx) => {
+    const updated = [...quoteDraft.items];
+    updated.splice(idx, 1);
+    setQuoteDraft({ ...quoteDraft, items: updated });
   };
+
+  const handleItemChange = (idx, field, value) => {
+    const updated = [...quoteDraft.items];
+    updated[idx][field] = value;
+
+    // Recalculate price if product or variant changes
+    if (field === 'product_id' || field === 'variant_id') {
+      const prod = products.find(p => p.id === parseInt(updated[idx].product_id));
+      if (prod) {
+        let price = parseFloat(prod.sales_price);
+        if (updated[idx].variant_id) {
+          const v = prod.variants?.find(vr => vr.id === parseInt(updated[idx].variant_id));
+          if (v) {
+            price += parseFloat(v.price_modifier);
+            updated[idx].variant_name = `${v.attribute_value} (+${v.price_modifier})`;
+          }
+        } else {
+          updated[idx].variant_name = '';
+        }
+        updated[idx].unit_price = price;
+      }
+    }
+
+    setQuoteDraft({ ...quoteDraft, items: updated });
+  };
+
+  // Calculations
+  const subtotal = quoteDraft.items.reduce((sum, it) => sum + (it.quantity * it.unit_price), 0);
+  const tax = subtotal * 0.18;
+  const total = subtotal + tax;
 
   const handleCreateQuote = async (e) => {
     e.preventDefault();
+    if (!quoteDraft.customer_id) {
+      alert('Please select a client account');
+      return;
+    }
+
     try {
-      const res = await subscriptionService.createQuote(quoteDraft);
+      const res = await subscriptionService.createQuote({
+        customer_id: quoteDraft.customer_id,
+        plan_id: quoteDraft.plan_id,
+        template_id: quoteDraft.template_id || null,
+        valid_days: quoteDraft.valid_days,
+        payment_terms: quoteDraft.payment_terms,
+        notes: quoteDraft.notes,
+        items: quoteDraft.items
+      });
+
       if (res.success) {
         setIsCreateQuoteOpen(false);
         loadData();
@@ -136,12 +149,8 @@ export const QuotationEditorView = ({ onViewChange }) => {
     try {
       const res = await subscriptionService.convertQuote(quoteId);
       if (res.success) {
-        // Trigger celebratory confetti
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        alert(`Quote accepted! Converted to Active Subscription #${res.subscription?.subscription_number}`);
         loadData();
       }
     } catch (err) {
@@ -149,105 +158,117 @@ export const QuotationEditorView = ({ onViewChange }) => {
     }
   };
 
-  // Calculate live totals for the draft
-  const draftSubtotal = quoteDraft.items.reduce((sum, it) => sum + ((it.quantity || 1) * (it.unit_price || 0)), 0);
-  const draftTax = draftSubtotal * 0.18;
-  const draftTotal = draftSubtotal + draftTax;
-
   return (
     <div style={{ padding: '0 1rem 2rem 1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Quotation Builder & Active Offers</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Quotation Builder & Offers</h1>
           <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.2rem' }}>
-            Build customized subscription offers and instantly convert accepted quotes into active recurring subscriptions
+            Build custom quotations for clients, apply templates, calculate taxes & brand variants, and convert in 1-click
           </p>
         </div>
-        <button onClick={() => setIsCreateQuoteOpen(true)} className="btn btn-primary">
-          <Plus size={18} />
-          <span>Prepare New Offer</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button onClick={() => onViewChange('client-management')} className="btn btn-secondary">
+            <Users size={16} />
+            <span>Manage Clients</span>
+          </button>
+          <button onClick={() => setIsCreateQuoteOpen(true)} className="btn btn-primary">
+            <Plus size={18} />
+            <span>Create New Quote</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading offers...</div>
+        <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading quotations...</div>
       ) : quotes.length === 0 ? (
         <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center' }}>
           <FileEdit size={48} color="#6366f1" style={{ margin: '0 auto 1rem auto' }} />
           <h3>No quotations created yet</h3>
+          <p style={{ color: '#94a3b8', margin: '0.5rem 0 1.5rem 0', fontSize: '0.875rem' }}>
+            Select a client and package line items with 18% GST tax calculation.
+          </p>
+          <button onClick={() => setIsCreateQuoteOpen(true)} className="btn btn-primary" style={{ margin: '0 auto' }}>
+            <Plus size={16} />
+            <span>Draft First Quotation</span>
+          </button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {quotes.map((quote) => (
             <div key={quote.id} className="glass-panel" style={{ padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.125rem', fontWeight: 800, color: '#ffffff' }}>
-                      {quote.quote_number}
+                      {quote.subscription_number}
                     </span>
                     <StatusBadge status={quote.status} />
+                    {quote.plan_name && (
+                      <span className="badge badge-quotation">{quote.plan_name}</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '0.875rem', color: '#cbd5e1', marginTop: '0.35rem' }}>
+
+                  <div style={{ fontSize: '0.875rem', color: '#cbd5e1', marginTop: '0.4rem' }}>
                     Client: <strong style={{ color: '#fff' }}>{quote.customer_name}</strong> {quote.customer_company ? `(${quote.customer_company})` : ''} • {quote.customer_email}
                   </div>
-                  <div style={{ fontSize: '0.8125rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                    Plan: <span style={{ color: '#818cf8', fontWeight: 600 }}>{quote.plan_name}</span> • Terms: {quote.payment_terms} • Valid until: {quote.valid_until}
+
+                  <div style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '0.2rem' }}>
+                    Created: {quote.start_date} • Expires: {quote.expiry_date || 'N/A'} • Terms: {quote.payment_terms}
                   </div>
                 </div>
 
-                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#38bdf8' }}>
-                    ${parseFloat(quote.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    Subtotal: ${parseFloat(quote.subtotal).toFixed(2)} + Tax (18%): ${parseFloat(quote.tax_amount).toFixed(2)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase' }}>Quoted Total (inc. 18% GST)</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#38bdf8' }}>
+                      ${(quote.items?.reduce((s, it) => s + it.amount, 0) * 1.18 || 0).toFixed(2)}
+                    </div>
                   </div>
 
-                  {quote.status !== 'Converted' ? (
+                  {quote.status === 'Quotation' && (
                     <button
                       onClick={() => handleConvertQuote(quote.id)}
                       className="btn btn-success"
-                      style={{ padding: '0.5rem 1rem', fontSize: '0.8125rem', marginTop: '0.25rem' }}
+                      style={{ padding: '0.6rem 1rem' }}
                     >
-                      <Sparkles size={16} />
+                      <CheckCircle size={16} />
                       <span>Convert to Active Subscription</span>
                     </button>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#34d399', fontSize: '0.8125rem', fontWeight: 700 }}>
-                      <CheckCircle size={16} />
-                      <span>Converted to Active Subscription</span>
-                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Line items preview */}
-              {quote.items && quote.items.length > 0 && (
-                <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '0.85rem' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-                    Offer Line Items:
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.5rem' }}>
-                    {quote.items.map((it, idx) => (
-                      <div key={idx} style={{
-                        padding: '0.5rem 0.75rem',
-                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                        borderRadius: '0.5rem',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        fontSize: '0.8125rem',
-                        display: 'flex',
-                        justifyContent: 'space-between'
-                      }}>
-                        <span>
-                          {it.quantity}x {it.product_name} {it.variant_name ? `(${it.variant_name})` : ''}
-                        </span>
-                        <strong style={{ color: '#f8fafc' }}>${it.amount.toFixed(2)}</strong>
-                      </div>
+              {/* Line Items Details */}
+              <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ color: '#64748b', borderBottom: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                      <th style={{ padding: '0.4rem 0' }}>Product / Variant</th>
+                      <th style={{ padding: '0.4rem 0', textAlign: 'center' }}>Quantity</th>
+                      <th style={{ padding: '0.4rem 0', textAlign: 'right' }}>Unit Price</th>
+                      <th style={{ padding: '0.4rem 0', textAlign: 'right' }}>Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quote.items?.map((it, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.02)' }}>
+                        <td style={{ padding: '0.5rem 0', color: '#f8fafc' }}>
+                          <strong>{it.product_name}</strong>
+                          {it.variant_name && (
+                            <span style={{ color: '#818cf8', marginLeft: '0.5rem' }}>
+                              [{it.variant_name}]
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.5rem 0', textAlign: 'center', color: '#cbd5e1' }}>{it.quantity}</td>
+                        <td style={{ padding: '0.5rem 0', textAlign: 'right', color: '#cbd5e1' }}>${it.unit_price.toFixed(2)}</td>
+                        <td style={{ padding: '0.5rem 0', textAlign: 'right', fontWeight: 700, color: '#34d399' }}>${it.amount.toFixed(2)}</td>
+                      </tr>
                     ))}
-                  </div>
-                </div>
-              )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
         </div>
@@ -257,23 +278,25 @@ export const QuotationEditorView = ({ onViewChange }) => {
       <Modal
         isOpen={isCreateQuoteOpen}
         onClose={() => setIsCreateQuoteOpen(false)}
-        title="Prepare Client Subscription Quotation"
-        maxWidth="750px"
+        title="Draft Client Quotation & Proposal"
+        maxWidth="800px"
       >
-        <form onSubmit={handleCreateQuote} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-          {/* Reusable Template Selector */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-              Load From Reusable Template (Optional)
-            </label>
+        <form onSubmit={handleCreateQuote} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Quick Apply Template */}
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '0.5rem', backgroundColor: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Sparkles size={16} color="#818cf8" />
+              <span style={{ fontSize: '0.8125rem', color: '#cbd5e1', fontWeight: 600 }}>Quick-fill from Quotation Template:</span>
+            </div>
             <select
               className="form-input"
+              style={{ width: 'auto', minWidth: '220px', padding: '0.35rem 0.6rem' }}
               value={quoteDraft.template_id}
-              onChange={(e) => handleTemplateSelect(e.target.value)}
+              onChange={(e) => handleApplyTemplate(e.target.value)}
             >
-              <option value="">-- Start from scratch --</option>
+              <option value="">-- Choose a Template --</option>
               {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.name} ({t.valid_days} days)</option>
+                <option key={t.id} value={t.id}>{t.name} ({t.valid_days}d valid)</option>
               ))}
             </select>
           </div>
@@ -281,15 +304,18 @@ export const QuotationEditorView = ({ onViewChange }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
-                Customer Account
+                Client Account *
               </label>
               <select
+                required
                 className="form-input"
                 value={quoteDraft.customer_id}
                 onChange={(e) => setQuoteDraft({ ...quoteDraft, customer_id: parseInt(e.target.value) })}
               >
-                <option value="3">Acme Corporation (customer@example.com)</option>
-                <option value="4">Zenith Labs Ltd (zenith@example.com)</option>
+                <option value="">-- Select Client --</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} {c.company ? `(${c.company})` : ''} - {c.email}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -315,8 +341,6 @@ export const QuotationEditorView = ({ onViewChange }) => {
               </label>
               <input
                 type="number"
-                min="1"
-                required
                 className="form-input"
                 value={quoteDraft.valid_days}
                 onChange={(e) => setQuoteDraft({ ...quoteDraft, valid_days: parseInt(e.target.value) || 15 })}
@@ -331,96 +355,72 @@ export const QuotationEditorView = ({ onViewChange }) => {
                 value={quoteDraft.payment_terms}
                 onChange={(e) => setQuoteDraft({ ...quoteDraft, payment_terms: e.target.value })}
               >
-                <option value="Immediate">Immediate</option>
                 <option value="Net 15">Net 15</option>
                 <option value="Net 30">Net 30</option>
-                <option value="Net 60">Net 60</option>
+                <option value="Immediate Net 0">Immediate Net 0</option>
+                <option value="End of Month">End of Month</option>
               </select>
             </div>
           </div>
 
-          {/* Line items table */}
+          {/* Line items editor */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#cbd5e1' }}>
-                Line Items (Products & Variants)
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase' }}>
+                Quotation Line Items & Variant Modifiers
               </span>
-              <button
-                type="button"
-                onClick={addItemToDraft}
-                style={{ background: 'none', border: 'none', color: '#818cf8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-              >
-                <Plus size={14} /> Add Line Item
+              <button type="button" onClick={handleAddItem} className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
+                <Plus size={14} /> Add Product Line
               </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {quoteDraft.items.map((it, idx) => {
-                const currentProd = products.find(p => p.id === it.product_id);
+                const prod = products.find(p => p.id === parseInt(it.product_id));
+                const availableVariants = prod?.variants || [];
+
                 return (
-                  <div key={idx} style={{
-                    display: 'grid',
-                    gridTemplateColumns: '2fr 2fr 1fr 1fr auto',
-                    gap: '0.5rem',
-                    alignItems: 'center',
-                    padding: '0.5rem',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    borderRadius: '0.5rem'
-                  }}>
-                    {/* Product */}
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1.2fr auto', gap: '0.5rem', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '0.5rem', borderRadius: '0.5rem' }}>
                     <select
                       className="form-input"
-                      style={{ padding: '0.4rem' }}
                       value={it.product_id}
-                      onChange={(e) => handleProductChange(idx, e.target.value)}
+                      onChange={(e) => handleItemChange(idx, 'product_id', e.target.value)}
                     >
                       {products.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id}>{p.name} (${p.sales_price})</option>
                       ))}
                     </select>
 
-                    {/* Variant */}
                     <select
                       className="form-input"
-                      style={{ padding: '0.4rem' }}
                       value={it.variant_id || ''}
-                      onChange={(e) => handleVariantChange(idx, e.target.value)}
+                      onChange={(e) => handleItemChange(idx, 'variant_id', e.target.value || null)}
                     >
-                      <option value="">Standard (No Variant)</option>
-                      {currentProd?.variants.map(v => (
-                        <option key={v.id} value={v.id}>{v.attribute_value} (+${v.price_modifier})</option>
+                      <option value="">No Variant / Base Price</option>
+                      {availableVariants.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.attribute_value} {v.price_modifier > 0 ? `(+${v.price_modifier})` : ''}
+                        </option>
                       ))}
                     </select>
 
-                    {/* Quantity */}
                     <input
                       type="number"
                       min="1"
                       className="form-input"
-                      style={{ padding: '0.4rem' }}
+                      style={{ textAlign: 'center' }}
                       value={it.quantity}
-                      onChange={(e) => {
-                        const qty = parseInt(e.target.value) || 1;
-                        setQuoteDraft(prev => {
-                          const updated = [...prev.items];
-                          updated[idx].quantity = qty;
-                          return { ...prev, items: updated };
-                        });
-                      }}
+                      onChange={(e) => handleItemChange(idx, 'quantity', parseInt(e.target.value) || 1)}
                     />
 
-                    {/* Unit Price */}
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#f8fafc', textAlign: 'right' }}>
-                      ${(it.unit_price * it.quantity).toFixed(2)}
+                    <div style={{ textAlign: 'right', fontWeight: 700, color: '#34d399', fontSize: '0.875rem' }}>
+                      ${(it.quantity * it.unit_price).toFixed(2)}
                     </div>
 
-                    {/* Remove */}
                     <button
                       type="button"
-                      onClick={() => removeItemFromDraft(idx)}
-                      disabled={quoteDraft.items.length <= 1}
-                      style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', opacity: quoteDraft.items.length <= 1 ? 0.3 : 1 }}
+                      onClick={() => handleRemoveItem(idx)}
+                      style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.25rem' }}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -430,16 +430,20 @@ export const QuotationEditorView = ({ onViewChange }) => {
             </div>
           </div>
 
-          {/* Summary Box */}
-          <div style={{ padding: '1rem', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderRadius: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Tax Calculated: GST 18% (${draftTax.toFixed(2)})</div>
-              <div style={{ fontSize: '0.8125rem', color: '#cbd5e1' }}>Subtotal: ${draftSubtotal.toFixed(2)}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Estimated Total:</span>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#38bdf8' }}>
-                ${draftTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          {/* Pricing summary */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '1rem' }}>
+            <div style={{ width: '260px', display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                <span>Subtotal:</span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8' }}>
+                <span>GST Tax (18%):</span>
+                <span>${tax.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.125rem', fontWeight: 800, color: '#38bdf8', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '0.35rem' }}>
+                <span>Quotation Total:</span>
+                <span>${total.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -449,7 +453,7 @@ export const QuotationEditorView = ({ onViewChange }) => {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              Generate & Send Offer
+              Issue Official Quotation
             </button>
           </div>
         </form>

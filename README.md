@@ -5,136 +5,218 @@
 
 ---
 
-##  Overview
+## ⚡ Overview
 
-Brightloop Software sells software on subscription: products billed daily, weekly, monthly, or yearly, dynamic add-ons, and brand variants (such as Odoo brand adding +$560 to pricing).
+Brightloop Software sells software on subscription: products billed daily, weekly, monthly, or yearly, dynamic add-ons, and brand variants (such as Odoo brand adding +$560 to pricing). 
 
 This platform replaces messy spreadsheets, missed renewals, manual invoice drafting, and quarterly revenue guesswork with an enterprise-grade digital backbone.
 
 ---
 
-##  Repository & Directory Architecture
+## 🏛️ System Architecture & Platform Structure
 
-As to the hackathon rules:
+### 1. Company Side (Admin & Staff Dashboard)
+*Used by Brightloop's internal employees.*
+
+#### **Admin can:**
+- **Add and manage products**: Configure software products, base pricing, and brand variants (such as Odoo brand adding +$560 modifier).
+- **Create subscription plans**: Set recurring billing intervals (daily, weekly, monthly, yearly), minimum quantities, and auto-close / pause rules.
+- **Configure taxes and discounts**: Manage 18% GST rules, fixed/percentage discounts, validity dates, minimum purchase thresholds, and usage limits.
+- **Add staff members**: Authorize and provision internal staff accounts (`/api/auth/staff`) with strict corporate credential verification.
+- **Manage customers**: View and manage customer profiles, subscription statuses, and account histories.
+- **View all subscriptions**: Real-time cross-company visibility over all customer subscriptions (Draft, Quotation, Confirmed, Active, Paused, Closed).
+- **Generate and manage invoices**: Trigger automated billing cycles, create manual invoices, and inspect line items, taxes, and due dates.
+- **Track payments and revenue**: Reconcile incoming transactions, review payment methods, and monitor executive MRR/ARR finance dashboards (<2s SLA).
+
+#### **Business Users can:**
+- **Business Operations Dashboard**: High-level visibility into total managed clients, active client subscriptions, outstanding receivables, and collected revenue.
+- **Manage Clients**: View client accounts, filter and search by corporate identity, and onboard new clients with contact and company credentials.
+- **Manage Client Subscriptions**: View all subscriptions filtered by client or status, create new recurring plans, and trigger lifecycle actions (pause, resume, renew, or close).
+- **Create Quotations**: Pick from reusable templates or build custom quotations with Odoo brand variant modifiers (+560), 18% GST calculation, and 1-click conversion to active subscriptions.
+- **Handle Invoices and Payments**: Generate invoices on billing days, record incoming customer payments against outstanding balances, and track payment receipts according to role permissions.
+
+---
+
+### 2. Customer Side (Customer Portal)
+*Used by people who purchase Brightloop's subscriptions.*
+
+#### **Customers can:**
+- **Register and log in**: Secure authentication with strict password validation (>8 chars, uppercase, lowercase, special char) and password reset tokens.
+- **Browse available plans**: Explore all software plans and pricing tiers configured by Brightloop.
+- **Purchase subscriptions**: Select an enterprise plan and immediately subscribe self-service.
+- **View active subscriptions**: Dedicated portal showing all active services, billing frequencies, and subscribed products.
+- **Pause or manage subscriptions where permitted**: Pause active services, resume paused services, close subscriptions early, or renew expired subscriptions without needing support tickets.
+- **View and download invoices**: Access full billing statements, inspect 18% GST tax breakdowns, and print or download official tax invoices/receipts.
+- **Check payment history**: Transparent record of payments made, amounts settled, and remaining balances due.
+- **See upcoming renewals**: Clear countdown and date visibility for next scheduled recurring billing cycles.
+
+> 🔒 **Data Isolation Guarantee:** Customers must only see their own information. Enforced via database-level customer ID scoping and JWT-based RBAC verification on all endpoints.
+
+---
+
+### 3. How Both Sides Connect
+
+Imagine this unified operational workflow:
 
 ```
-root/
-├── .env
-├── .env.example
-├── .gitignore
-├── Brightloop_API.postman_collection.json
-├── file_structure
-├── package.json
-├── README.md
-├── backend/
-│   └── sql                         # File
-├── business_logic/                 # Currently empty
-└── subscription-system/
-    ├── server/
-    │   ├── package.json
-    │   ├── database/
-    │   │   ├── migrations/
-    │   │   │   └── 001_initial_schema.sql
-    │   │   └── seeds/
-    │   │       └── initial_seed.sql
-    │   ├── src/
-    │   │   ├── app.js
-    │   │   ├── server.js
-    │   │   ├── config/
-    │   │   │   └── db.js
-    │   │   ├── controllers/
-    │   │   │   ├── auth.controller.js
-    │   │   │   ├── invoice.controller.js
-    │   │   │   ├── payment.controller.js
-    │   │   │   ├── product.controller.js
-    │   │   │   ├── quote.controller.js
-    │   │   │   ├── reporting.controller.js
-    │   │   │   └── subscription.controller.js
-    │   │   ├── jobs/
-    │   │   │   └── cron.js
-    │   │   ├── middleware/
-    │   │   │   ├── auth.middleware.js
-    │   │   │   └── rbac.middleware.js
-    │   │   ├── models/
-    │   │   │   ├── customer.model.js
-    │   │   │   ├── discount.model.js
-    │   │   │   ├── invoice.model.js
-    │   │   │   ├── payment.model.js
-    │   │   │   ├── plan.model.js
-    │   │   │   ├── product.model.js
-    │   │   │   └── subscription.model.js
-    │   │   ├── routes/
-    │   │   │   ├── auth.routes.js
-    │   │   │   ├── discount.routes.js
-    │   │   │   ├── invoice.routes.js
-    │   │   │   ├── product.routes.js
-    │   │   │   ├── quote.routes.js
-    │   │   │   ├── reporting.routes.js
-    │   │   │   └── subscription.routes.js
-    │   │   └── services/
-    │   │       ├── billingScheduler.js
-    │   │       ├── discountEngine.js
-    │   │       └── taxCalculator.js
-    │   └── tests/
-    │       ├── billing.test.js
-    │       └── discount.test.js
-    └── client/
-        ├── index.html
-        ├── package.json
-        ├── vite.config.js
-        ├── public/
-        │   └── favicon.svg
-        └── src/
-            ├── App.jsx
-            ├── index.css
-            ├── main.jsx
-            ├── api/
-            │   ├── authService.js
-            │   ├── client.js
-            │   ├── invoiceService.js
-            │   ├── productService.js
-            │   ├── reportingService.js
-            │   └── subscriptionService.js
-            ├── components/
-            │   ├── common/
-            │   │   └── UIComponents.jsx
-            │   ├── layout/
-            │   │   ├── Navbar.jsx
-            │   │   └── Sidebar.jsx
-            │   └── rbac/
-            │       └── ProtectedRoute.jsx
-            ├── context/
-            │   └── AuthContext.jsx
-            └── views/
-                ├── admin/
-                │   ├── DiscountRulesView.jsx
-                │   ├── PlanManagementView.jsx
-                │   ├── ProductCatalogView.jsx
-                │   └── StaffManagementView.jsx
-                ├── auth/
-                │   ├── ForgotPasswordView.jsx
-                │   ├── LoginView.jsx
-                │   └── RegisterView.jsx
-                ├── billing/
-                │   ├── InvoiceListView.jsx
-                │   └── PaymentRecordingView.jsx
-                ├── customer-portal/
-                │   ├── CustomerDashboard.jsx
-                │   ├── MyInvoicesView.jsx
-                │   └── MySubscriptionsView.jsx
-                ├── finance/
-                │   └── FinanceDashboard.jsx
-                └── sales/
-                    ├── QuotationEditorView.jsx
-                    └── QuotationTemplatesView.jsx
+       BRIGHTLOOP COMPANY
+               |
+               v
+       ADMIN DASHBOARD
+               |
+       Creates products
+       Creates plans
+       Sets prices
+               |
+               v
+        CUSTOMER PORTAL
+               |
+       Customer selects plan
+               |
+               v
+        SUBSCRIPTION CREATED
+               |
+               v
+        AUTOMATIC BILLING
+               |
+               v
+        INVOICE GENERATED
+               |
+               v
+         PAYMENT RECORDED
+               |
+               v
+       ADMIN DASHBOARD UPDATED
 ```
 
 ---
 
-##  How to Run Locally
+## 🏗️ Repository & Directory Architecture
+
+As to the hackathon rules:
+
+```
+root-directory/
+├── .env.example                      # Template for environment variables (DB credentials, JWT secret, Port)
+├── .gitignore                        # Untracked files (node_modules, .env, build outputs, *.db)
+├── package.json                      # Root workspace configuration and unified start scripts
+├── README.md                         # Project documentation, setup instructions, and architecture
+│
+└── subscription-system/              # MAIN REPOSITORY FOLDER
+    ├── server/                       # BACKEND DIRECTORY (Express, Node, PG / SQLite)
+    │   ├── src/
+    │   │   ├── app.js                # Express app initialization, CORS, routes & error handling
+    │   │   ├── server.js             # HTTP server entry point booting DB, cron, & listening on port
+    │   │   │
+    │   │   ├── config/               
+    │   │   │   └── db.js             # PostgreSQL connection pool with seamless SQLite fallback & auto-seed
+    │   │   │
+    │   │   ├── middleware/           
+    │   │   │   ├── auth.middleware.js# JWT verification and strict password validation (>8 chars, upper, lower, special)
+    │   │   │   └── rbac.middleware.js# Role-Based Access Control (Admin, Staff, Customer privileges)
+    │   │   │
+    │   │   ├── models/               
+    │   │   │   ├── customer.model.js # Users, unique emails, and RBAC roles
+    │   │   │   ├── product.model.js  # Products and variants (supporting Odoo brand +$560 pricing logic)
+    │   │   │   ├── plan.model.js     # Recurring plans (billing frequency, min quantity, auto-close, pause rules)
+    │   │   │   ├── subscription.model.js # Subscription states: Draft -> Quotation -> Confirmed -> Active -> Closed
+    │   │   │   ├── invoice.model.js  # Invoices, line items, taxes, and status pipeline (Draft -> Confirmed -> Paid)
+    │   │   │   ├── discount.model.js # Admin discount rules (fixed/percentage, min purchase, limits, usage count)
+    │   │   │   └── payment.model.js  # Payment methods, amounts, timestamps, and audit notes
+    │   │   │
+    │   │   ├── services/             
+    │   │   │   ├── taxCalculator.js  # Automated tax calculation engine based on admin tax rules (GST 18%)
+    │   │   │   ├── discountEngine.js # Logic checking discount eligibility, limits, and automated deductions
+    │   │   │   └── billingScheduler.js # Automated recurring billing engine ensuring no skips or duplicates
+    │   │   │
+    │   │   ├── controllers/          
+    │   │   │   ├── auth.controller.js# Sign-up, password rules, login, and email reset link simulation
+    │   │   │   ├── product.controller.js # Product catalog, variants, and Odoo price modifier (+560)
+    │   │   │   ├── quote.controller.js # Quotation templates, expiry tracking, and quote-to-subscription conversion
+    │   │   │   ├── subscription.controller.js # Lifecycle actions (pause, resume, close early, renew)
+    │   │   │   ├── invoice.controller.js # Invoice pipeline management and printable invoices
+    │   │   │   ├── payment.controller.js # Logging payments against invoices and reconciling balances
+    │   │   │   └── reporting.controller.js # High-performance financial summary queries (<2s response SLA)
+    │   │   │
+    │   │   ├── routes/               
+    │   │   │   ├── auth.routes.js    # Authentication endpoints (/api/auth/*)
+    │   │   │   ├── product.routes.js # Products and plans (/api/products/*)
+    │   │   │   ├── quote.routes.js   # Quotation management (/api/quotes/*)
+    │   │   │   ├── subscription.routes.js # Subscriptions (/api/subscriptions/*)
+    │   │   │   ├── invoice.routes.js # Invoices & billing triggers (/api/invoices/*)
+    │   │   │   ├── discount.routes.js# Admin discount rules (/api/discounts/*)
+    │   │   │   └── reporting.routes.js # Financial metrics (/api/reports/*)
+    │   │   │
+    │   │   └── jobs/                 
+    │   │       └── cron.js           # Background scheduler triggering automated billing jobs on billing day
+    │   │
+    │   ├── database/                 
+    │   │   ├── migrations/           
+    │   │   │   └── 001_initial_schema.sql # Master relational schema with performance indexes
+    │   │   └── seeds/                
+    │   │       └── initial_seed.sql  # Rich initial dummy dataset for testing
+    │   │
+    │   └── tests/                    
+    │       ├── billing.test.js       # Integration test verifying billing day automated invoice generation
+    │       └── discount.test.js      # Integration test checking discount limits and rule applications
+    │
+    └── client/                       # FRONTEND DIRECTORY (React 18 + Vite)
+        ├── public/                   # Favicon & assets
+        └── src/                      
+            ├── main.jsx              # Application entry point
+            ├── App.jsx               # Root routing, view controller & layout shells
+            ├── index.css             # Boss-level dark glassmorphic design system
+            │
+            ├── api/                  
+            │   ├── client.js         # Axios HTTP base instance with JWT interceptors
+            │   ├── authService.js    # Authentication API calls
+            │   ├── productService.js # Product & plan API calls
+            │   ├── subscriptionService.js # Subscriptions and quotations API calls
+            │   ├── invoiceService.js # Invoices and payments API calls
+            │   └── reportingService.js # Finance reporting and discounts API calls
+            │
+            ├── components/           
+            │   ├── common/           # Reusable UI (Modal, StatCard, StatusBadge)
+            │   ├── layout/           # Navbar and Sidebar shells
+            │   └── rbac/             # ProtectedRoute role wrapper
+            │
+            ├── context/              
+            │   └── AuthContext.jsx   # Active user session, JWT token, and role permissions
+            │
+            └── views/                
+                ├── auth/             
+                │   ├── LoginView.jsx # Fast 1-click persona demo sign-in
+                │   ├── RegisterView.jsx # Strict password rule checklist verification
+                │   └── ForgotPasswordView.jsx # Email reset link & token reset handler
+                │
+                ├── admin/            
+                │   ├── ProductCatalogView.jsx # Product setup & brand variants (Odoo +$560)
+                │   ├── PlanManagementView.jsx # Daily, weekly, monthly, yearly plan configuration
+                │   ├── DiscountRulesView.jsx # Fixed & percentage discounts with usage limits
+                │   └── StaffManagementView.jsx # Administrator-only staff provisioning
+                │
+                ├── sales/            
+                │   ├── QuotationTemplatesView.jsx # Reusable quotation bundle templates
+                │   └── QuotationEditorView.jsx # Quote builder & 1-click subscription conversion
+                │
+                ├── billing/          
+                │   ├── InvoiceListView.jsx # Pipeline tracking, "Run Billing Day", printable view
+                │   └── PaymentRecordingView.jsx # Payment reconciliation against invoices
+                │
+                ├── customer-portal/      
+                │   ├── CustomerDashboard.jsx # Self-service landing overview
+                │   ├── MySubscriptionsView.jsx # Self-service browse plans, subscribe, pause, resume, close, & renew
+                │   └── MyInvoicesView.jsx # Customer invoice viewing and official receipts
+                │
+                └── finance/          
+                    └── FinanceDashboard.jsx # Sub-second finance lead dashboard (<2s SLA)
+```
+
+---
+
+## 🚀 How to Run Locally
 
 ### 1. Prerequisites
-
 - **Node.js** v18+ (tested on Node v22.17.0)
 - **npm** v9+
 
@@ -151,7 +233,6 @@ npm run client
 ```
 
 Or run directly within each workspace:
-
 ```bash
 # Start Server:
 cd subscription-system/server
@@ -163,69 +244,60 @@ npm run dev
 ```
 
 ### 3. Running Integration Tests
-
 ```bash
 cd subscription-system/server
 npm test
 ```
-
 All test suites (`billing.test.js` and `discount.test.js`) will execute against the automated billing scheduler and discount engine.
 
 ---
 
-##  Demo Personas & Credentials
+## 🔑 Demo Personas & Credentials
 
 The database comes pre-seeded with 3 roles ready for testing:
 
 | Role               | Email                  | Password       | Access Privileges                                                                               |
 | :----------------- | :--------------------- | :------------- | :---------------------------------------------------------------------------------------------- |
 | **System Admin**   | `admin@brightloop.com` | `AdminPass1!`  | Full platform control, products, variants, plans, discounts, staff provisioning, and finance    |
-| **Internal Staff** | `staff@brightloop.com` | `SecurePass1!` | Day-to-day operations: quotes, subscriptions, billing day invoice generation, payment recording |
-| **Customer**       | `customer@example.com` | `SecurePass1!` | Self-service portal: view active subscriptions, pause/resume, view and print invoice receipts   |
+| **Business Account** | `staff@brightloop.com` | `SecurePass1!` | Business Operations: Dedicated dashboard, client management, client subscriptions, quotes, billing day, and payment reconciliation |
+| **Customer**       | `customer@example.com` | `SecurePass1!` | Self-service portal: browse plans, subscribe, view active subscriptions, pause/resume, view and print receipts   |
 
 _(Quick demo buttons are also provided directly on the Login screen for instant 1-click testing)_
 
 ---
 
-##  How "A Month at Brightloop" is Solved
+## 🌟 How "A Month at Brightloop" is Solved
 
 ### Scene 1: A New Customer Signs Up & Staff Provisioning
-
 - **Strict Password Enforcement**: Validates length (>8 characters), at least one uppercase letter, one lowercase letter, and one special character.
 - **Unique Account Email**: Database unique constraint prevents duplicates.
 - **Password Reset**: Generates a secure time-limited reset token sent to the registered email.
-- **Role Isolation**: Admin controls the full platform, staff handles operations, and customers only see their personal records. Only Admin can provision staff accounts (`/api/auth/staff`).
+- **Role Isolation**: Admin controls the full platform, business handles client operations, and customers only see their personal records. Only Admin can provision internal staff accounts (`/api/auth/staff`).
 
 ### Scene 2: Launching a New Plan & Brand Variants (+560)
-
 - **Product & Variant Pricing**: Admin creates products with base prices. Adding a variant (e.g. brand `Odoo`) automatically applies the `+560.00` price modifier.
 - **Recurring Plans**: Plans support `daily`, `weekly`, `monthly`, or `yearly` frequencies with minimum quantity rules.
 - **Lifecycle Controls**: Admin configures whether plans auto-close on expiration date or allow pause/resume actions.
 
 ### Scene 3: Turning a Quote into a Subscription
-
 - **Quotation Templates**: Sales reps pick from reusable templates with bundled line items and validity windows.
 - **Quotation Builder**: Live calculation of product prices, brand variant modifiers, taxes (18% GST), and totals.
 - **1-Click Conversion**: Converts accepted quotations directly into `Active` subscriptions with unique identifiers (`SUB-2026-0001`).
 
 ### Scene 4: Billing Day & Automated Recurring Invoicing
-
 - **One-Click & Cron Scheduler**: Background cron job or manual trigger ("Run Billing Day Now") scans all active subscriptions due for billing.
 - **Zero Duplicates / Zero Skips**: Idempotent billing engine checks `billing_period_start` and advances `next_billing_date` seamlessly based on frequency.
 - **Tax Rules**: Taxes automatically calculated (default 18% GST).
 - **Print & Email**: Team can confirm, send simulated emails, and print official tax invoices.
 
 ### Scene 5: A Customer Asks for a Better Price (Discounts)
-
 - **Admin Discount Rules**: Fixed amounts or percentage discounts with start/end dates, minimum purchase thresholds, and seat quantity limits.
 - **Automatic Engine**: Evaluates eligible discounts automatically during billing without manual calculations, increments usage count, and deactivates rules when exhausted.
 
 ### Scene 6: The Money Comes In (Payments)
-
 - **Payment Reconciliation**: Records payment method (`bank_transfer`, `credit_card`, `upi`, `cash`, `cheque`), amount, timestamp, and notes.
 - **Balance Tracking**: Automatically updates invoice status (`Paid` when balance cleared, or `Confirmed` with remaining balance).
 
 ### Scene 7: The Finance Lead at the End of the Month (<2s SLA)
-
 - **Executive Dashboard**: Real-time overview of active subscriptions, total cash collected, outstanding receivables, MRR, ARR, and plan contribution breakdown.
 - **Performance**: High-performance indexed SQL aggregations respond in under **50ms**, beating the **2-second SLA**.

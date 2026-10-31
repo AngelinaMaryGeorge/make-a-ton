@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { subscriptionService } from '../../api/subscriptionService';
 import { invoiceService } from '../../api/invoiceService';
 import { StatCard, StatusBadge } from '../../components/common/UIComponents';
-import { FolderKanban, Receipt, CreditCard, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { FolderKanban, Receipt, CreditCard, ArrowRight, ShieldCheck, Zap, PlusCircle } from 'lucide-react';
 
 export const CustomerDashboard = ({ onViewChange }) => {
   const { user } = useAuth();
@@ -32,7 +32,7 @@ export const CustomerDashboard = ({ onViewChange }) => {
 
   const activeSubs = subscriptions.filter(s => s.status === 'Active');
   const unpaidInvoices = invoices.filter(i => i.status !== 'Paid');
-  const totalDue = unpaidInvoices.reduce((sum, i) => sum + i.amount_due, 0);
+  const totalDue = unpaidInvoices.reduce((sum, i) => sum + (parseFloat(i.amount_due) || 0), 0);
 
   return (
     <div style={{ padding: '0 1rem 2rem 1rem' }}>
@@ -41,7 +41,12 @@ export const CustomerDashboard = ({ onViewChange }) => {
         padding: '2rem',
         marginBottom: '1.75rem',
         background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(6, 182, 212, 0.15) 100%)',
-        border: '1px solid rgba(99, 102, 241, 0.3)'
+        border: '1px solid rgba(99, 102, 241, 0.3)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '1rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{
@@ -61,10 +66,18 @@ export const CustomerDashboard = ({ onViewChange }) => {
               Welcome to Your Self-Service Portal
             </h1>
             <p style={{ color: '#cbd5e1', fontSize: '0.875rem', marginTop: '0.2rem' }}>
-              Logged in as <strong style={{ color: '#fff' }}>{user?.name}</strong> • {user?.company || 'Personal Account'}
+              Logged in as <strong style={{ color: '#fff' }}>{user?.name}</strong> • {user?.company || 'Personal Account'} (Data isolated to your account)
             </p>
           </div>
         </div>
+
+        <button
+          onClick={() => onViewChange('my-subscriptions')}
+          className="btn btn-primary"
+        >
+          <PlusCircle size={16} />
+          <span>Browse Available Plans</span>
+        </button>
       </div>
 
       {/* Quick Metrics */}
@@ -109,7 +122,7 @@ export const CustomerDashboard = ({ onViewChange }) => {
 
           {activeSubs.length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: '0.875rem', padding: '1rem 0' }}>
-              No active subscriptions right now.
+              No active subscriptions right now. Click "Browse Available Plans" above to start!
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -172,7 +185,7 @@ export const CustomerDashboard = ({ onViewChange }) => {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, color: '#38bdf8' }}>${inv.total_amount.toFixed(2)}</div>
+                    <div style={{ fontWeight: 700, color: '#38bdf8' }}>${parseFloat(inv.total_amount || 0).toFixed(2)}</div>
                     <StatusBadge status={inv.status} />
                   </div>
                 </div>

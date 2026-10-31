@@ -5,6 +5,24 @@ import { LogOut, User, ShieldCheck, Zap } from 'lucide-react';
 export const Navbar = ({ currentView, onViewChange }) => {
   const { user, logout, isAdmin, isStaff } = useAuth();
 
+  const handleLogoClick = () => {
+    if (!user) {
+      onViewChange('login');
+      return;
+    }
+    if (user.role === 'customer') {
+      onViewChange('customer-dashboard');
+    } else {
+      onViewChange('business-dashboard');
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    if (role === 'staff' || role === 'business') return 'Business Account';
+    if (role === 'admin') return 'System Admin';
+    return 'Customer';
+  };
+
   return (
     <header className="glass-panel" style={{
       position: 'sticky',
@@ -19,7 +37,7 @@ export const Navbar = ({ currentView, onViewChange }) => {
     }}>
       {/* Brand logo & tagline */}
       <div 
-        onClick={() => onViewChange(user?.role === 'customer' ? 'customer-dashboard' : 'finance-dashboard')}
+        onClick={handleLogoClick}
         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
       >
         <div style={{
@@ -58,8 +76,8 @@ export const Navbar = ({ currentView, onViewChange }) => {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'flex-end' }}>
                   <ShieldCheck size={12} color="#6366f1" />
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'capitalize' }}>
-                    {user.role} {user.company ? `• ${user.company}` : ''}
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    {getRoleBadge(user.role)} {user.company ? `• ${user.company}` : ''}
                   </span>
                 </div>
               </div>

@@ -30,6 +30,10 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        localStorage.removeItem('brightloop_token');
+        localStorage.removeItem('brightloop_user');
+      }
     }
     return Promise.reject(error);
   }
