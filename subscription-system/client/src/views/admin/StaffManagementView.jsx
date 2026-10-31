@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../api/authService';
+import { Modal } from '../../components/common/UIComponents';
+import { UserPlus } from 'lucide-react';
 
 export const StaffManagementView = () => {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [isCreatingStaff, setIsCreatingStaff] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    email: '',
+    password: '',
+    company: 'Brightloop Internal'
+  });
 
   const loadStaff = async () => {
     try {
@@ -14,6 +27,7 @@ export const StaffManagementView = () => {
       }
     } catch (err) {
       console.error('Error loading staff:', err);
+      setErrorMessage(err.response?.data?.message || 'Unable to load staff members.');
     } finally {
       setLoading(false);
     }
@@ -23,16 +37,47 @@ export const StaffManagementView = () => {
     loadStaff();
   }, []);
 
+  const handleCreateStaff = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    setIsCreatingStaff(true);
+    try {
+      const res = await authService.createStaff(newStaff);
+      if (res.success) {
+        setIsAddStaffOpen(false);
+        setNewStaff({ name: '', email: '', password: '', company: 'Brightloop Internal' });
+        setSuccessMessage(res.message || 'Staff account created successfully.');
+        await loadStaff();
+      }
+    } catch (err) {
+      setErrorMessage(err.response?.data?.message || 'Error creating staff account.');
+    } finally {
+      setIsCreatingStaff(false);
+    }
+  };
+
   return (
     <div style={{ padding: '0 1rem 2rem 1rem' }}>
-      <div style={{ marginBottom: '1.75rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Internal Staff Management</h1>
           <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.2rem' }}>
-            View internal customer success and sales staff accounts
+            Only administrators can authorize and provision internal customer success and sales staff accounts
           </p>
         </div>
+        <button onClick={() => setIsAddStaffOpen(true)} className="btn btn-primary">
+          <UserPlus size={18} />
+          <span>Add Internal Staff Member</span>
+        </button>
       </div>
+
+      {errorMessage && (
+        <p role="alert" style={{ color: '#f87171', marginBottom: '1rem' }}>{errorMessage}</p>
+      )}
+      {successMessage && (
+        <p role="status" style={{ color: '#34d399', marginBottom: '1rem' }}>{successMessage}</p>
+      )}
 
       {loading ? (
         <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading staff members...</div>
@@ -75,6 +120,65 @@ export const StaffManagementView = () => {
         </div>
       )}
 
+      {/* Modal: Add Staff */}
+      <Modal
+        isOpen={isAddStaffOpen}
+        onClose={() => setIsAddStaffOpen(false)}
+        title="Provision Internal Staff Member"
+      >
+        <form onSubmit={handleCreateStaff} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+              Staff Full Name
+            </label>
+            <input
+              type="text"
+              required
+              className="form-input"
+              placeholder="e.g. Rachel Adams"
+              value={newStaff.name}
+              onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+              Corporate Email (@brightloop.com)
+            </label>
+            <input
+              type="email"
+              required
+              className="form-input"
+              placeholder="rachel@brightloop.com"
+              value={newStaff.email}
+              onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '0.4rem' }}>
+              Initial Password (&gt;8 chars, uppercase, lowercase, special char)
+            </label>
+            <input
+              type="password"
+              required
+              className="form-input"
+              placeholder="StaffPass1!"
+              value={newStaff.password}
+              onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsAddStaffOpen(false)} disabled={isCreatingStaff}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={isCreatingStaff}>
+              {isCreatingStaff ? 'Creating Staff...' : 'Authorize & Create Staff'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

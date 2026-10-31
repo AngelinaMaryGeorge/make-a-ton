@@ -198,6 +198,52 @@ const AuthController = {
     } catch (err) {
       return res.status(500).json({ success: false, message: err.message });
     }
+  },
+
+  /**
+   * Admin: Create an internal staff account
+   */
+  async createStaff(req, res) {
+    try {
+      const { name, email, password, company = 'Brightloop Internal' } = req.body;
+
+      if (!name || !email || !password) {
+        return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+      }
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        return res.status(400).json({ success: false, message: 'A valid email address is required' });
+      }
+
+      const passwordCheck = validatePassword(password);
+      if (!passwordCheck.valid) {
+        return res.status(400).json({ success: false, message: passwordCheck.message });
+      }
+
+      const existing = await CustomerModel.findByEmail(email.trim());
+      if (existing) {
+        return res.status(409).json({ success: false, message: 'An account with this email already exists' });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const staff = await CustomerModel.create({
+        name: name.trim(),
+        email: email.trim(),
+        passwordHash,
+        role: 'staff',
+        company: company.trim(),
+        phone: ''
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Staff account created successfully',
+        staff
+      });
+    } catch (err) {
+      console.error('Staff creation error:', err);
+      return res.status(500).json({ success: false, message: 'Internal server error during staff creation' });
+    }
   }
 };
 

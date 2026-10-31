@@ -12,6 +12,83 @@ This platform replaces messy spreadsheets, missed renewals, manual invoice draft
 
 ---
 
+## 🏛️ System Architecture & Platform Structure
+
+### 1. Company Side (Admin & Staff Dashboard)
+*Used by Brightloop's internal employees.*
+
+#### **Admin can:**
+- **Add and manage products**: Configure software products, base pricing, and brand variants (such as Odoo brand adding +$560 modifier).
+- **Create subscription plans**: Set recurring billing intervals (daily, weekly, monthly, yearly), minimum quantities, and auto-close / pause rules.
+- **Configure taxes and discounts**: Manage 18% GST rules, fixed/percentage discounts, validity dates, minimum purchase thresholds, and usage limits.
+- **Add staff members**: Authorize and provision internal staff accounts (`/api/auth/staff`) with strict corporate credential verification.
+- **Manage customers**: View and manage customer profiles, subscription statuses, and account histories.
+- **View all subscriptions**: Real-time cross-company visibility over all customer subscriptions (Draft, Quotation, Confirmed, Active, Paused, Closed).
+- **Generate and manage invoices**: Trigger automated billing cycles, create manual invoices, and inspect line items, taxes, and due dates.
+- **Track payments and revenue**: Reconcile incoming transactions, review payment methods, and monitor executive MRR/ARR finance dashboards (<2s SLA).
+
+#### **Staff can:**
+- **Manage customer accounts**: Review customer accounts and subscription statuses.
+- **Create quotations**: Pick from reusable templates or build custom quotations with real-time tax and price calculations.
+- **Manage subscriptions**: Convert confirmed quotes into active subscriptions, pause/resume, or renew subscriptions.
+- **Handle invoices and payments**: Generate invoices on billing days, record incoming customer payments against outstanding balances, and track payment receipts according to role permissions.
+
+---
+
+### 2. Customer Side (Customer Portal)
+*Used by people who purchase Brightloop's subscriptions.*
+
+#### **Customers can:**
+- **Register and log in**: Secure authentication with strict password validation (>8 chars, uppercase, lowercase, special char) and password reset tokens.
+- **Browse available plans**: Explore all software plans and pricing tiers configured by Brightloop.
+- **Purchase subscriptions**: Select an enterprise plan and immediately subscribe self-service.
+- **View active subscriptions**: Dedicated portal showing all active services, billing frequencies, and subscribed products.
+- **Pause or manage subscriptions where permitted**: Pause active services, resume paused services, close subscriptions early, or renew expired subscriptions without needing support tickets.
+- **View and download invoices**: Access full billing statements, inspect 18% GST tax breakdowns, and print or download official tax invoices/receipts.
+- **Check payment history**: Transparent record of payments made, amounts settled, and remaining balances due.
+- **See upcoming renewals**: Clear countdown and date visibility for next scheduled recurring billing cycles.
+
+> 🔒 **Data Isolation Guarantee:** Customers must only see their own information. Enforced via database-level customer ID scoping and JWT-based RBAC verification on all endpoints.
+
+---
+
+### 3. How Both Sides Connect
+
+Imagine this unified operational workflow:
+
+```
+       BRIGHTLOOP COMPANY
+               |
+               v
+       ADMIN DASHBOARD
+               |
+       Creates products
+       Creates plans
+       Sets prices
+               |
+               v
+        CUSTOMER PORTAL
+               |
+       Customer selects plan
+               |
+               v
+        SUBSCRIPTION CREATED
+               |
+               v
+        AUTOMATIC BILLING
+               |
+               v
+        INVOICE GENERATED
+               |
+               v
+         PAYMENT RECORDED
+               |
+               v
+       ADMIN DASHBOARD UPDATED
+```
+
+---
+
 ## 🏗️ Repository & Directory Architecture
 
 Conforms strictly to the hackathon project specification:
@@ -126,7 +203,7 @@ root-directory/
                 │
                 ├── customer-portal/      
                 │   ├── CustomerDashboard.jsx # Self-service landing overview
-                │   ├── MySubscriptionsView.jsx # Self-service pause, resume, close, & renew
+                │   ├── MySubscriptionsView.jsx # Self-service browse plans, subscribe, pause, resume, close, & renew
                 │   └── MyInvoicesView.jsx # Customer invoice viewing and official receipts
                 │
                 └── finance/          
@@ -181,7 +258,7 @@ The database comes pre-seeded with 3 roles ready for testing:
 | :--- | :--- | :--- | :--- |
 | **System Admin** | `admin@brightloop.com` | `AdminPass1!` | Full platform control, products, variants, plans, discounts, staff provisioning, and finance |
 | **Internal Staff** | `staff@brightloop.com` | `SecurePass1!` | Day-to-day operations: quotes, subscriptions, billing day invoice generation, payment recording |
-| **Customer** | `customer@example.com` | `SecurePass1!` | Self-service portal: view active subscriptions, pause/resume, view and print invoice receipts |
+| **Customer** | `customer@example.com` | `SecurePass1!` | Self-service portal: browse plans, subscribe, view active subscriptions, pause/resume, view and print receipts |
 
 *(Quick demo buttons are also provided directly on the Login screen for instant 1-click testing)*
 

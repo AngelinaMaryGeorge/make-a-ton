@@ -50,20 +50,24 @@ const SubscriptionController = {
   },
 
   /**
-   * Create new subscription (Admin/Staff)
+   * Create new subscription (Admin/Staff for customer, or Customer for self)
    */
   async createSubscription(req, res) {
     try {
-      const { customer_id, plan_id, status = 'Draft', start_date, expiry_date, payment_terms, notes, items } = req.body;
-      if (!customer_id || !plan_id || !start_date) {
-        return res.status(400).json({ success: false, message: 'Customer, Plan, and Start Date are required' });
+      const isCustomer = req.user.role === 'customer';
+      const customer_id = isCustomer ? req.user.id : (req.body.customer_id || req.user.id);
+      const { plan_id, status = isCustomer ? 'Active' : 'Draft', start_date, expiry_date, payment_terms = 'Net 30', notes, items } = req.body;
+      const effectiveStartDate = start_date || new Date().toISOString().split('T')[0];
+
+      if (!customer_id || !plan_id) {
+        return res.status(400).json({ success: false, message: 'Customer and Plan are required' });
       }
 
       const subscription = await SubscriptionModel.create({
         customer_id,
         plan_id,
         status,
-        start_date,
+        start_date: effectiveStartDate,
         expiry_date,
         payment_terms,
         notes,
@@ -99,12 +103,17 @@ const SubscriptionController = {
         if (!['Paused', 'Closed', 'Active'].includes(status)) {
           return res.status(403).json({ success: false, message: 'Customers can only pause, resume, or close their subscriptions' });
         }
+        if (status === 'Paused' && !existing.allow_pause) {
+          return res.status(400).json({ success: false, message: 'This subscription plan does not allow pausing' });
+        }
       }
 
-      const updated = await SubscriptionModel.updateStatus(subId, status);
-      return res.status(200).json({ success: true, message: `Subscription status updated to ${status}`, subscription: updated });
+      await SubscriptionModel.updateStatus(subId, status);
+      const updated = await SubscriptionModel.findById(subId);
+      return res.status(200).json({ success: true, message: `Status updated to ${status}`, subscription: updated });
     } catch (err) {
-      return res.status(400).json({ success: false, message: err.message });
+      console.error('Error updating status:', err);
+      return res.status(500).json({ success: false, message: err.message });
     }
   },
 
@@ -117,6 +126,11 @@ const SubscriptionController = {
       const sub = await SubscriptionModel.findById(subId);
       if (!sub) {
         return res.status(404).json({ success: false, message: 'Subscription not found' });
+      }
+
+      // Customer can only renew their own
+      if (req.user.role === 'customer' && sub.customer_id !== req.user.id) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
       }
 
       // Extend expiry date by 1 year
