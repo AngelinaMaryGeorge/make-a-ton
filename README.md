@@ -13,120 +13,119 @@ This platform replaces messy spreadsheets, missed renewals, manual invoice draft
 
 ---
 
-##  Repository & Directory Architecture
+## Repository & Directory Structure
 
-As to the hackathon rules:
+The tree below reflects the project files. Dependency folders, generated build output, and the local SQLite database are omitted.
 
 ```
-root/
-├── .env
+.
 ├── .env.example
 ├── .gitignore
 ├── Brightloop_API.postman_collection.json
+├── README.md
 ├── file_structure
 ├── package.json
-├── README.md
+├── package-lock.json
 ├── backend/
-│   └── sql                         # File
-├── business_logic/                 # Currently empty
+│   └── sql
 └── subscription-system/
-    ├── server/
+    ├── client/
+    │   ├── index.html
     │   ├── package.json
-    │   ├── database/
-    │   │   ├── migrations/
-    │   │   │   └── 001_initial_schema.sql
-    │   │   └── seeds/
-    │   │       └── initial_seed.sql
-    │   ├── src/
-    │   │   ├── app.js
-    │   │   ├── server.js
-    │   │   ├── config/
-    │   │   │   └── db.js
-    │   │   ├── controllers/
-    │   │   │   ├── auth.controller.js
-    │   │   │   ├── invoice.controller.js
-    │   │   │   ├── payment.controller.js
-    │   │   │   ├── product.controller.js
-    │   │   │   ├── quote.controller.js
-    │   │   │   ├── reporting.controller.js
-    │   │   │   └── subscription.controller.js
-    │   │   ├── jobs/
-    │   │   │   └── cron.js
-    │   │   ├── middleware/
-    │   │   │   ├── auth.middleware.js
-    │   │   │   └── rbac.middleware.js
-    │   │   ├── models/
-    │   │   │   ├── customer.model.js
-    │   │   │   ├── discount.model.js
-    │   │   │   ├── invoice.model.js
-    │   │   │   ├── payment.model.js
-    │   │   │   ├── plan.model.js
-    │   │   │   ├── product.model.js
-    │   │   │   └── subscription.model.js
-    │   │   ├── routes/
-    │   │   │   ├── auth.routes.js
-    │   │   │   ├── discount.routes.js
-    │   │   │   ├── invoice.routes.js
-    │   │   │   ├── product.routes.js
-    │   │   │   ├── quote.routes.js
-    │   │   │   ├── reporting.routes.js
-    │   │   │   └── subscription.routes.js
-    │   │   └── services/
-    │   │       ├── billingScheduler.js
-    │   │       ├── discountEngine.js
-    │   │       └── taxCalculator.js
-    │   └── tests/
-    │       ├── billing.test.js
-    │       └── discount.test.js
-    └── client/
-        ├── index.html
+    │   ├── vite.config.js
+    │   ├── public/
+    │   │   └── favicon.svg
+    │   └── src/
+    │       ├── App.jsx
+    │       ├── index.css
+    │       ├── main.jsx
+    │       ├── api/
+    │       │   ├── authService.js
+    │       │   ├── client.js
+    │       │   ├── invoiceService.js
+    │       │   ├── productService.js
+    │       │   ├── reportingService.js
+    │       │   └── subscriptionService.js
+    │       ├── components/
+    │       │   ├── common/
+    │       │   │   └── UIComponents.jsx
+    │       │   ├── layout/
+    │       │   │   ├── Navbar.jsx
+    │       │   │   └── Sidebar.jsx
+    │       │   └── rbac/
+    │       │       └── ProtectedRoute.jsx
+    │       ├── context/
+    │       │   └── AuthContext.jsx
+    │       └── views/
+    │           ├── admin/
+    │           │   ├── DiscountRulesView.jsx
+    │           │   ├── PlanManagementView.jsx
+    │           │   ├── ProductCatalogView.jsx
+    │           │   └── StaffManagementView.jsx
+    │           ├── auth/
+    │           │   ├── ForgotPasswordView.jsx
+    │           │   ├── LoginView.jsx
+    │           │   └── RegisterView.jsx
+    │           ├── billing/
+    │           │   ├── InvoiceListView.jsx
+    │           │   └── PaymentRecordingView.jsx
+    │           ├── customer-portal/
+    │           │   ├── CustomerDashboard.jsx
+    │           │   ├── MyInvoicesView.jsx
+    │           │   └── MySubscriptionsView.jsx
+    │           ├── finance/
+    │           │   └── FinanceDashboard.jsx
+    │           └── sales/
+    │               ├── QuotationEditorView.jsx
+    │               └── QuotationTemplatesView.jsx
+    └── server/
         ├── package.json
-        ├── vite.config.js
-        ├── public/
-        │   └── favicon.svg
-        └── src/
-            ├── App.jsx
-            ├── index.css
-            ├── main.jsx
-            ├── api/
-            │   ├── authService.js
-            │   ├── client.js
-            │   ├── invoiceService.js
-            │   ├── productService.js
-            │   ├── reportingService.js
-            │   └── subscriptionService.js
-            ├── components/
-            │   ├── common/
-            │   │   └── UIComponents.jsx
-            │   ├── layout/
-            │   │   ├── Navbar.jsx
-            │   │   └── Sidebar.jsx
-            │   └── rbac/
-            │       └── ProtectedRoute.jsx
-            ├── context/
-            │   └── AuthContext.jsx
-            └── views/
-                ├── admin/
-                │   ├── DiscountRulesView.jsx
-                │   ├── PlanManagementView.jsx
-                │   ├── ProductCatalogView.jsx
-                │   └── StaffManagementView.jsx
-                ├── auth/
-                │   ├── ForgotPasswordView.jsx
-                │   ├── LoginView.jsx
-                │   └── RegisterView.jsx
-                ├── billing/
-                │   ├── InvoiceListView.jsx
-                │   └── PaymentRecordingView.jsx
-                ├── customer-portal/
-                │   ├── CustomerDashboard.jsx
-                │   ├── MyInvoicesView.jsx
-                │   └── MySubscriptionsView.jsx
-                ├── finance/
-                │   └── FinanceDashboard.jsx
-                └── sales/
-                    ├── QuotationEditorView.jsx
-                    └── QuotationTemplatesView.jsx
+        ├── database/
+        │   ├── migrations/
+        │   │   └── 001_initial_schema.sql
+        │   └── seeds/
+        │       └── initial_seed.sql
+        ├── src/
+        │   ├── app.js
+        │   ├── server.js
+        │   ├── config/
+        │   │   └── db.js
+        │   ├── controllers/
+        │   │   ├── auth.controller.js
+        │   │   ├── invoice.controller.js
+        │   │   ├── payment.controller.js
+        │   │   ├── product.controller.js
+        │   │   ├── quote.controller.js
+        │   │   ├── reporting.controller.js
+        │   │   └── subscription.controller.js
+        │   ├── jobs/
+        │   │   └── cron.js
+        │   ├── middleware/
+        │   │   ├── auth.middleware.js
+        │   │   └── rbac.middleware.js
+        │   ├── models/
+        │   │   ├── customer.model.js
+        │   │   ├── discount.model.js
+        │   │   ├── invoice.model.js
+        │   │   ├── payment.model.js
+        │   │   ├── plan.model.js
+        │   │   ├── product.model.js
+        │   │   └── subscription.model.js
+        │   ├── routes/
+        │   │   ├── auth.routes.js
+        │   │   ├── discount.routes.js
+        │   │   ├── invoice.routes.js
+        │   │   ├── product.routes.js
+        │   │   ├── quote.routes.js
+        │   │   ├── reporting.routes.js
+        │   │   └── subscription.routes.js
+        │   └── services/
+        │       ├── billingScheduler.js
+        │       ├── discountEngine.js
+        │       └── taxCalculator.js
+        └── tests/
+            ├── billing.test.js
+            └── discount.test.js
 ```
 
 ---
