@@ -1,0 +1,113 @@
+root-directory/
+├── .env.example                      # [Person A] Template for environment variables (DB credentials, JWT secret, Port)
+├── .gitignore                        # [Person A & B] Specifies intentionally untracked files (node_modules, .env, build outputs)
+├── package.json                      # [Person A] Root dependencies, workspace configuration, and start scripts
+└── README.md                         # [All] Project documentation, setup instructions, and architecture overview
+│
+└── subscription-system/              # MAIN REPOSITORY FOLDER
+    ├── server/                       # BACKEND DIRECTORY
+    │   ├── src/
+    │   │   ├── app.js                # [Person A] Express app initialization, middleware registration, and error handling
+    │   │   ├── server.js             # [Person A] HTTP server entry point that boots up the app and listens on port
+    │   │   │
+    │   │   ├── config/               
+    │   │   │   └── db.js             # [Person A] PostgreSQL connection pool setup and ORM client initialization
+    │   │   │
+    │   │   ├── middleware/           
+    │   │   │   ├── auth.middleware.js# [Person A & B] JWT verification and secure password validation rules (>8 chars, uppercase, lowercase, special char)
+    │   │   │   └── rbac.middleware.js# [Person A & B] Role-Based Access Control wrapper enforcing Admin, Internal Staff, and Customer privileges
+    │   │   │
+    │   │   ├── models/               
+    │   │   │   ├── customer.model.js # [Person A] Database schema for users, emails (unique constraint), and RBAC roles
+    │   │   │   ├── product.model.js  # [Person A] Database schema for products and variants (supporting Odoo brand +560 pricing logic)
+    │   │   │   ├── plan.model.js     # [Person A] Database schema for recurring plans (billing frequency, quantity, dates)
+    │   │   │   ├── subscription.model.js # [Person A] Database schema tracking subscription states (Draft -> Quotation -> Confirmed -> Active -> Closed)
+    │   │   │   ├── invoice.model.js  # [Person A] Database schema for invoices, lines, tax calculations, and status pipeline
+    │   │   │   ├── discount.model.js # [Person A] Database schema for admin discount rules (fixed/percentage, min purchase, limits)
+    │   │   │   └── payment.model.js  # [Person A] Database schema recording payment methods, amounts, timestamps, and audit notes
+    │   │   │
+    │   │   ├── services/             
+    │   │   │   ├── taxCalculator.js  # [Person B] Engine for automatically calculating taxes based on admin rules
+    │   │   │   ├── discountEngine.js # [Person B] Logic checking discount applicability, usage counts, and automatic line-item deductions
+    │   │   │   └── billingScheduler.js # [Person B] Automated recurring billing engine ensuring invoices generate cleanly without skips or duplicates
+    │   │   │
+    │   │   ├── controllers/          
+    │   │   │   ├── auth.controller.js# [Person B] Handlers for sign-up, password rules, login, and secure email password resets
+    │   │   │   ├── product.controller.js # [Person B] Handlers for product catalogs, variants, and Odoo brand price modifiers (+560)
+    │   │   │   ├── quote.controller.js # [Person B] Handlers for quotation templates, expiry tracking, and quote-to-subscription conversion
+    │   │   │   ├── subscription.controller.js # [Person B] Handlers for subscription lifecycle actions (pause, resume, close early, renew)
+    │   │   │   ├── invoice.controller.js # [Person B] Handlers for managing the invoice pipeline (Draft -> Confirmed -> Paid) and printing/emails
+    │   │   │   ├── payment.controller.js # [Person B] Handlers for recording incoming payments against specific invoices and tracking outstanding balances
+    │   │   │   └── reporting.controller.js # [Person B] High-performance financial summary queries optimized to respond in under 2 seconds
+    │   │   │
+    │   │   ├── routes/               
+    │   │   │   ├── auth.routes.js    # [Person B] API routing endpoints for authentication (/api/auth/*)
+    │   │   │   ├── product.routes.js # [Person B] API routing endpoints for products and plans (/api/products/*)
+    │   │   │   ├── quote.routes.js   # [Person B] API routing endpoints for quotations (/api/quotes/*)
+    │   │   │   ├── subscription.routes.js # [Person B] API routing endpoints for subscriptions (/api/subscriptions/*)
+    │   │   │   ├── invoice.routes.js # [Person B] API routing endpoints for invoices (/api/invoices/*)
+    │   │   │   ├── discount.routes.js# [Person B] API routing endpoints for admin discount rules (/api/discounts/*)
+    │   │   │   └── reporting.routes.js # [Person B] API routing endpoints for financial metrics (/api/reports/*)
+    │   │   │
+    │   │   └── jobs/                 
+    │   │       └── cron.js           # [Person A] Background scheduler triggering automated billing jobs on billing day
+    │   │
+    │   ├── database/                 
+    │   │   ├── migrations/           
+    │   │   │   └── 001_initial_schema.sql # [Person A] Master SQL script establishing all core relational tables and foreign keys
+    │   │   └── seeds/                
+    │   │       └── initial_seed.sql  # [Person A] Initial dummy dataset for development and testing
+    │   │
+    │   └── tests/                    
+    │       ├── billing.test.js       # [Person B] Integration test suite verifying billing day automated invoice generation
+    │       └── discount.test.js      # [Person B] Integration test suite checking discount limits and code application rules
+    │
+    └── client/                       # FRONTEND DIRECTORY
+        ├── public/                   # [Person N] Static assets, favicon, and index HTML template
+        └── src/                      
+            ├── main.jsx              # [Person N] React application entry point mounting to DOM
+            ├── App.jsx               # [Person N] Root component setting up top-level routing and context providers
+            │
+            ├── api/                  
+            │   ├── client.js         # [Person N] Axios HTTP client base instance with request/response interceptors
+            │   ├── authService.js    # [Person N] API calls for login, registration, and password recovery
+            │   ├── productService.js # [Person N] API calls for fetching/managing products and variant prices (+560)
+            │   ├── subscriptionService.js # [Person N] API calls for managing subscription lifecycles and quotes
+            │   ├── invoiceService.js # [Person N] API calls for invoice pipeline actions and payment tracking
+            │   └── reportingService.js # [Person N] API calls fetching financial summaries for the dashboard
+            │
+            ├── components/           
+            │   ├── common/           # [Person N] Reusable UI components (Modals, Tables, Input forms, Buttons)
+            │   ├── layout/           # [Person N] Application layout shells (Navbars, Sidebars, Footers)
+            │   └── rbac/             # [Person N] Route wrapper component restricting views by Admin, Staff, and Customer roles
+            │
+            ├── context/              
+            │   └── AuthContext.jsx   # [Person N] React context holding active user session state, token, and permissions
+            │
+            └── views/                
+                ├── auth/             
+                │   ├── LoginView.jsx # [Person N] Login screen with email and secure password inputs
+                │   ├── RegisterView.jsx # [Person N] Account registration screen with strict validation rules
+                │   └── ForgotPasswordView.jsx # [Person N] Password recovery screen requesting email reset link
+                │
+                ├── admin/            
+                │   ├── ProductCatalogView.jsx # [Person N] Admin screen for setting up products and brand variants (e.g., Odoo +560)
+                │   ├── PlanManagementView.jsx # [Person N] Admin screen configuring recurring billing intervals, minimum quantities, and windows
+                │   ├── DiscountRulesView.jsx # [Person N] Admin screen creating fixed/percentage discount rules and usage limits
+                │   └── StaffManagementView.jsx # [Person N] Admin screen dedicated to adding/managing internal staff members
+                │
+                ├── sales/            
+                │   ├── QuotationTemplatesView.jsx # [Person N] Sales screen managing reusable quotation templates
+                │   └── QuotationEditorView.jsx # [Person N] Sales screen building offers and converting quotes to active subscriptions
+                │
+                ├── billing/          
+                │   ├── InvoiceListView.jsx # [Person N] Billing screen displaying the invoice pipeline (Draft -> Confirmed -> Paid)
+                │   └── PaymentRecordingView.jsx # [Person N] Billing screen for logging payments against invoices with methods and notes
+                │
+                ├── customer-portal/      
+                │   ├── CustomerDashboard.jsx # [Person N] Main landing page for self-service customer portal
+                │   ├── MySubscriptionsView.jsx # [Person N] Customer screen viewing and self-managing personal subscriptions
+                │   └── MyInvoicesView.jsx # [Person N] Customer screen viewing and downloading personal invoices
+                │
+                └── finance/          
+                    └── FinanceDashboard.jsx # [Person N] High-performance finance lead dashboard displaying active subscriptions, revenue, and overdue invoices (<2s response)
