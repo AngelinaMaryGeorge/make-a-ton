@@ -5,7 +5,7 @@
 
 ---
 
-## ⚡ Overview
+##  Overview
 
 Brightloop Software sells software on subscription: products billed daily, weekly, monthly, or yearly, dynamic add-ons, and brand variants (such as Odoo brand adding +$560 to pricing).
 
@@ -13,7 +13,7 @@ This platform replaces messy spreadsheets, missed renewals, manual invoice draft
 
 ---
 
-## 🏗️ Repository & Directory Architecture
+##  Repository & Directory Architecture
 
 As to the hackathon rules:
 
@@ -131,7 +131,7 @@ root/
 
 ---
 
-## 🚀 How to Run Locally
+##  How to Run Locally
 
 ### 1. Prerequisites
 
@@ -173,7 +173,7 @@ All test suites (`billing.test.js` and `discount.test.js`) will execute against 
 
 ---
 
-## 🔑 Demo Personas & Credentials
+##  Demo Personas & Credentials
 
 The database comes pre-seeded with 3 roles ready for testing:
 
@@ -187,7 +187,7 @@ _(Quick demo buttons are also provided directly on the Login screen for instant 
 
 ---
 
-## 🌟 How "A Month at Brightloop" is Solved
+##  How "A Month at Brightloop" is Solved
 
 ### Scene 1: A New Customer Signs Up & Staff Provisioning
 
