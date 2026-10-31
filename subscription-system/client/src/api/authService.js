@@ -32,5 +32,21 @@ export const authService = {
   async getStaff() {
     const res = await apiClient.get('/auth/staff');
     return res.data;
+  },
+
+  async createStaff(data) {
+    const res = await apiClient.post('/auth/staff', data);
+    return res.data;
+  },
+
+  // Business & Admin: Client Management
+  async getClients() {
+    const res = await apiClient.get('/auth/clients');
+    return res.data;
+  },
+
+  async createClient(data) {
+    const res = await apiClient.post('/auth/clients', data);
+    return res.data;
   }
 };

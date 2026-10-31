@@ -92,7 +92,39 @@ function runSqliteMigrations() {
         console.error('Migration error:', err);
         return reject(err);
       }
-      resolve();
+      sqliteDb.all('PRAGMA table_info(invoices)', [], (columnsError, columns) => {
+        if (columnsError) return reject(columnsError);
+        const existingColumns = new Set(columns.map(column => column.name));
+        const missingColumns = [
+          ['invoice_number', 'TEXT'],
+          ['amount_paid', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00'],
+          ['amount_due', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00']
+        ].filter(([name]) => !existingColumns.has(name));
+
+        const ensureInvoiceNumbers = () => {
+          sqliteDb.run(
+            "UPDATE invoices SET invoice_number = 'INV-LEGACY-' || id WHERE invoice_number IS NULL OR invoice_number = ''",
+            (backfillError) => {
+              if (backfillError) return reject(backfillError);
+              sqliteDb.run(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_invoice_number ON invoices(invoice_number)',
+                (indexError) => indexError ? reject(indexError) : resolve()
+              );
+            }
+          );
+        };
+
+        const addNextColumn = () => {
+          const [name, definition] = missingColumns.shift() || [];
+          if (!name) return ensureInvoiceNumbers();
+          sqliteDb.run(`ALTER TABLE invoices ADD COLUMN ${name} ${definition}`, (alterError) => {
+            if (alterError) return reject(alterError);
+            addNextColumn();
+          });
+        };
+
+        addNextColumn();
+      });
     });
   });
 }

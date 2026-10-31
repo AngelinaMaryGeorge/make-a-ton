@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../api/authService';
 import { Modal } from '../../components/common/UIComponents';
-import { Users, UserPlus, Shield, Mail, Building, CheckCircle2 } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
 export const StaffManagementView = () => {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [isCreatingStaff, setIsCreatingStaff] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const [newStaff, setNewStaff] = useState({
     name: '',
     email: '',
     password: '',
-    company: 'Brightloop Internal',
-    role: 'staff'
+    company: 'Brightloop Internal'
   });
 
   const loadStaff = async () => {
@@ -25,6 +27,7 @@ export const StaffManagementView = () => {
       }
     } catch (err) {
       console.error('Error loading staff:', err);
+      setErrorMessage(err.response?.data?.message || 'Unable to load staff members.');
     } finally {
       setLoading(false);
     }
@@ -36,15 +39,21 @@ export const StaffManagementView = () => {
 
   const handleCreateStaff = async (e) => {
     e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    setIsCreatingStaff(true);
     try {
-      const res = await authService.register(newStaff);
+      const res = await authService.createStaff(newStaff);
       if (res.success) {
         setIsAddStaffOpen(false);
-        setNewStaff({ name: '', email: '', password: '', company: 'Brightloop Internal', role: 'staff' });
-        loadStaff();
+        setNewStaff({ name: '', email: '', password: '', company: 'Brightloop Internal' });
+        setSuccessMessage(res.message || 'Staff account created successfully.');
+        await loadStaff();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Error creating staff account');
+      setErrorMessage(err.response?.data?.message || 'Error creating staff account.');
+    } finally {
+      setIsCreatingStaff(false);
     }
   };
 
@@ -62,6 +71,13 @@ export const StaffManagementView = () => {
           <span>Add Internal Staff Member</span>
         </button>
       </div>
+
+      {errorMessage && (
+        <p role="alert" style={{ color: '#f87171', marginBottom: '1rem' }}>{errorMessage}</p>
+      )}
+      {successMessage && (
+        <p role="status" style={{ color: '#34d399', marginBottom: '1rem' }}>{successMessage}</p>
+      )}
 
       {loading ? (
         <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>Loading staff members...</div>
@@ -154,11 +170,11 @@ export const StaffManagementView = () => {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsAddStaffOpen(false)}>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsAddStaffOpen(false)} disabled={isCreatingStaff}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              Authorize & Create Staff
+            <button type="submit" className="btn btn-primary" disabled={isCreatingStaff}>
+              {isCreatingStaff ? 'Creating Staff...' : 'Authorize & Create Staff'}
             </button>
           </div>
         </form>

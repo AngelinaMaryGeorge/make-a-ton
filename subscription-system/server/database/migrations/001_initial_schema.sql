@@ -48,12 +48,15 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
 CREATE TABLE IF NOT EXISTS invoices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_number VARCHAR(50) UNIQUE NOT NULL,
     subscription_id INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
     customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
     status VARCHAR(50) CHECK (status IN ('Draft', 'Confirmed', 'Paid')),
     subtotal DECIMAL(12,2),
     tax_amount DECIMAL(12,2),
     total_amount DECIMAL(12,2),
+    amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    amount_due DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     due_date DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
