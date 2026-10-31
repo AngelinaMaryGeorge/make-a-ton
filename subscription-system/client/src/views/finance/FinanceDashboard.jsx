@@ -6,21 +6,30 @@ import {
   CheckCircle2, RefreshCw, BarChart3
 } from 'lucide-react';
 
+const formatCurrency = (value) => {
+  const amount = Number(value);
+  return `$${(Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+};
+
 export const FinanceDashboard = ({ onViewChange }) => {
   const [metrics, setMetrics] = useState(null);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const loadMetrics = async () => {
     try {
       setLoading(true);
+      setError('');
       const res = await reportingService.getDashboardMetrics();
-      if (res.success) {
-        setMetrics(res.data);
-        setMeta(res.meta);
+      if (!res.success || !res.data) {
+        throw new Error(res.message || 'The reporting service returned no financial data.');
       }
+      setMetrics(res.data);
+      setMeta(res.meta);
     } catch (err) {
       console.error('Error loading finance metrics:', err);
+      setError(err.response?.data?.message || err.message || 'Unable to load financial data.');
     } finally {
       setLoading(false);
     }
@@ -56,16 +65,36 @@ export const FinanceDashboard = ({ onViewChange }) => {
         </button>
       </div>
 
+      {error && (
+        <div role="alert" style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1rem',
+          padding: '0.85rem 1rem',
+          marginBottom: '1.25rem',
+          borderRadius: '0.5rem',
+          color: '#fca5a5',
+          backgroundColor: 'rgba(239, 68, 68, 0.12)',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        }}>
+          <span>Unable to load financial data: {error}</span>
+          <button onClick={loadMetrics} className="btn btn-secondary" style={{ fontSize: '0.8125rem' }}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {loading && !metrics ? (
         <LoadingBlock message="Crunching financial data..." />
-      ) : (
+      ) : !metrics ? null : (
         <>
           {/* KPI Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.1rem', marginBottom: '1.75rem' }}>
             <StatCard
-              title="Monthly Recurring Revenue"
-              value={`$${metrics?.mrr?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              subtitle={`ARR: $${metrics?.arr?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              title="Monthly Recurring Revenue (MRR)"
+              value={formatCurrency(metrics?.mrr)}
+              subtitle={`ARR Run-Rate: ${formatCurrency(metrics?.arr)}`}
               icon={TrendingUp}
               color="#6366f1"
               trend="+14.2% from prior period"
@@ -73,8 +102,8 @@ export const FinanceDashboard = ({ onViewChange }) => {
             />
             <StatCard
               title="Total Cash Collected"
-              value={`$${metrics?.total_revenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              subtitle={`${metrics?.paid_invoices_count || 0} invoices paid`}
+              value={formatCurrency(metrics?.total_revenue)}
+              subtitle={`${metrics?.paid_invoices_count || 0} invoices paid in full`}
               icon={DollarSign}
               color="#10b981"
             />
@@ -87,8 +116,8 @@ export const FinanceDashboard = ({ onViewChange }) => {
             />
             <StatCard
               title="Overdue Receivables"
-              value={`$${metrics?.overdue_amount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              subtitle={`${metrics?.overdue_invoices_count || 0} overdue invoices`}
+              value={formatCurrency(metrics?.overdue_amount)}
+              subtitle={`${metrics?.overdue_invoices_count || 0} invoices past payment terms`}
               icon={AlertTriangle}
               color="#ef4444"
               trend={metrics?.overdue_invoices_count > 0 ? 'Requires immediate action' : undefined}
@@ -134,9 +163,11 @@ export const FinanceDashboard = ({ onViewChange }) => {
                         </div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800, color: '#f87171' }}>${inv.amount_due.toFixed(2)}</div>
+                        <div style={{ fontWeight: 800, color: '#f87171', fontSize: '1rem' }}>
+                          {formatCurrency(inv.amount_due)}
+                        </div>
                         <button onClick={() => onViewChange('payment-recording')} style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', marginTop: '0.15rem' }}>
-                          Record →
+                          Record Payment →
                         </button>
                       </div>
                     </div>
@@ -160,9 +191,10 @@ export const FinanceDashboard = ({ onViewChange }) => {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontWeight: 800, color: '#34d399', fontSize: '0.875rem' }}>
-                        {plan.count} sub{plan.count !== 1 ? 's' : ''}
+                        {plan.count} subscription{plan.count === 1 ? '' : 's'}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>${plan.total_value.toFixed(2)}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                        Base: {formatCurrency(plan.total_value)}
                     </div>
                   </div>
                 ))}
@@ -188,7 +220,7 @@ export const FinanceDashboard = ({ onViewChange }) => {
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 700, color: '#a5b4fc' }}>
                       {pay.payment_number}
                     </span>
-                    <strong style={{ color: '#10b981', fontSize: '0.9375rem' }}>+${pay.amount.toFixed(2)}</strong>
+                    <strong style={{ color: '#10b981', fontSize: '0.9375rem' }}>+{formatCurrency(pay.amount)}</strong>
                   </div>
                   <div style={{ fontSize: '0.8125rem', color: '#94a3b8', marginTop: '0.3rem' }}>
                     {pay.customer_name} ({pay.invoice_number})

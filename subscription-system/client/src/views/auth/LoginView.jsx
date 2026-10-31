@@ -238,7 +238,7 @@ export const LoginView = ({ onViewChange }) => {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               {[
                 { role: 'admin',    label: 'Admin',    sub: 'System Lead',              color: '#818cf8', bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.25)' },
-                { role: 'business', label: 'Business', sub: 'Clients & Subscriptions',  color: '#34d399', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.22)' },
+                { role: 'business', label: 'Staff Login', sub: 'Staff Dashboard',         color: '#34d399', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.22)' },
                 { role: 'customer', label: 'Customer', sub: 'Self-Service Portal',       color: '#38bdf8', bg: 'rgba(56,189,248,0.08)', border: 'rgba(56,189,248,0.22)' },
               ].map(({ role, label, sub, color, bg, border }) => (
                 <button
