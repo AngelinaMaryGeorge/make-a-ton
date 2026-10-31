@@ -1,0 +1,232 @@
+{
+	"info": {
+		"name": "Brightloop Subscription API",
+		"description": "API endpoints for the Brightloop Subscription Management System.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"customer@example.com\",\n  \"password\": \"SecurePass1!\"\n}"
+						},
+						"url": {"raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"]}
+					}
+				},
+				{
+					"name": "Login (Sets Token)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if(jsonData.role === 'admin') pm.environment.set('admin_token', jsonData.token);",
+									"if(jsonData.role === 'staff') pm.environment.set('staff_token', jsonData.token);",
+									"if(jsonData.role === 'customer') pm.environment.set('customer_token', jsonData.token);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@brightloop.com\",\n  \"password\": \"AdminPass1!\"\n}"
+						},
+						"url": {"raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"]}
+					}
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"customer@example.com\"\n}"
+						},
+						"url": {"raw": "{{base_url}}/auth/forgot-password", "host": ["{{base_url}}"], "path": ["auth", "forgot-password"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Products & Plans",
+			"item": [
+				{
+					"name": "Create Product (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"ERP Cloud\",\n  \"type\": \"software\",\n  \"sales_price\": 1000.00,\n  \"cost_price\": 200.00\n}"
+						},
+						"url": {"raw": "{{base_url}}/products", "host": ["{{base_url}}"], "path": ["products"]}
+					}
+				},
+				{
+					"name": "Add Variant (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"brand\": \"Odoo\",\n  \"price_modifier\": 560\n}"
+						},
+						"url": {"raw": "{{base_url}}/products/1/variants", "host": ["{{base_url}}"], "path": ["products", "1", "variants"]}
+					}
+				},
+				{
+					"name": "Add Plan (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"billing_frequency\": \"monthly\",\n  \"min_quantity\": 5,\n  \"auto_close\": false,\n  \"allow_pause\": true\n}"
+						},
+						"url": {"raw": "{{base_url}}/products/1/plans", "host": ["{{base_url}}"], "path": ["products", "1", "plans"]}
+					}
+				},
+				{
+					"name": "Get Product Catalog",
+					"request": {
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/products", "host": ["{{base_url}}"], "path": ["products"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Quotations",
+			"item": [
+				{
+					"name": "Create Quote (Staff)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{staff_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": 1,\n  \"template_id\": 2,\n  \"valid_days\": 15\n}"
+						},
+						"url": {"raw": "{{base_url}}/quotes", "host": ["{{base_url}}"], "path": ["quotes"]}
+					}
+				},
+				{
+					"name": "Convert Quote to Subscription",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{staff_token}}", "type": "string"}]},
+						"method": "POST",
+						"url": {"raw": "{{base_url}}/quotes/1/convert", "host": ["{{base_url}}"], "path": ["quotes", "1", "convert"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Subscriptions",
+			"item": [
+				{
+					"name": "Get All Subscriptions (Staff)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{staff_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/subscriptions", "host": ["{{base_url}}"], "path": ["subscriptions"]}
+					}
+				},
+				{
+					"name": "Get My Subscriptions (Customer)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{customer_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/subscriptions/me", "host": ["{{base_url}}"], "path": ["subscriptions", "me"]}
+					}
+				},
+				{
+					"name": "Update Status (Staff)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{staff_token}}", "type": "string"}]},
+						"method": "PATCH",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"Active\"\n}"
+						},
+						"url": {"raw": "{{base_url}}/subscriptions/1/status", "host": ["{{base_url}}"], "path": ["subscriptions", "1", "status"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Discounts",
+			"item": [
+				{
+					"name": "Create Discount Rule (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"percentage\",\n  \"amount\": 15,\n  \"min_quantity\": 10,\n  \"usage_limit\": 100\n}"
+						},
+						"url": {"raw": "{{base_url}}/discounts", "host": ["{{base_url}}"], "path": ["discounts"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Invoices & Payments",
+			"item": [
+				{
+					"name": "Get All Invoices (Staff)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{staff_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/invoices", "host": ["{{base_url}}"], "path": ["invoices"]}
+					}
+				},
+				{
+					"name": "Record Payment (Staff)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{staff_token}}", "type": "string"}]},
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": 1560.00,\n  \"method\": \"bank_transfer\",\n  \"notes\": \"Paid via wire transfer\"\n}"
+						},
+						"url": {"raw": "{{base_url}}/invoices/1/payments", "host": ["{{base_url}}"], "path": ["invoices", "1", "payments"]}
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Finance Reporting",
+			"item": [
+				{
+					"name": "Get Dashboard Metrics (Admin)",
+					"request": {
+						"auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{admin_token}}", "type": "string"}]},
+						"method": "GET",
+						"url": {"raw": "{{base_url}}/reports/dashboard", "host": ["{{base_url}}"], "path": ["reports", "dashboard"]}
+					}
+				}
+			]
+		}
+	]
+}
