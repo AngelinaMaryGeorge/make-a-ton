@@ -1,0 +1,65 @@
+-- Customers Table
+CREATE TABLE customers (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) DEFAULT 'customer', -- 'admin', 'staff', 'customer'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Products & Variants Table
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(100),
+    sales_price DECIMAL(12,2) NOT NULL,
+    cost_price DECIMAL(12,2),
+    variant_metadata JSONB,
+    notes TEXT
+);
+
+-- Plans Table
+CREATE TABLE plans (
+    id SERIAL PRIMARY KEY,
+    product_id INT REFERENCES products(id),
+    billing_frequency VARCHAR(20) CHECK (billing_frequency IN ('daily', 'weekly', 'monthly', 'yearly')),
+    min_quantity INT DEFAULT 1,
+    start_date DATE,
+    end_date DATE,
+    auto_close BOOLEAN DEFAULT FALSE,
+    allow_pause BOOLEAN DEFAULT TRUE
+);
+
+-- Subscriptions Table
+CREATE TABLE subscriptions (
+    id SERIAL PRIMARY KEY,
+    subscription_number VARCHAR(50) UNIQUE NOT NULL,
+    customer_id INT REFERENCES customers(id),
+    plan_id INT REFERENCES plans(id),
+    status VARCHAR(50) CHECK (status IN ('Draft', 'Quotation', 'Confirmed', 'Active', 'Closed')),
+    start_date DATE NOT NULL,
+    expiry_date DATE,
+    payment_terms VARCHAR(100)
+);
+
+-- Invoices Table
+CREATE TABLE invoices (
+    id SERIAL PRIMARY KEY,
+    subscription_id INT REFERENCES subscriptions(id),
+    customer_id INT REFERENCES customers(id),
+    status VARCHAR(50) CHECK (status IN ('Draft', 'Confirmed', 'Paid')),
+    subtotal DECIMAL(12,2),
+    tax_amount DECIMAL(12,2),
+    total_amount DECIMAL(12,2),
+    due_date DATE
+);
+
+-- Payments Table
+CREATE TABLE payments (
+    id SERIAL PRIMARY KEY,
+    invoice_id INT REFERENCES invoices(id),
+    amount DECIMAL(12,2) NOT NULL,
+    method VARCHAR(50),
+    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT
+);
