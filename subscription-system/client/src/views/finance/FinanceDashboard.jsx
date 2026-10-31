@@ -195,6 +195,7 @@ export const FinanceDashboard = ({ onViewChange }) => {
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
                         Base: {formatCurrency(plan.total_value)}
+                      </div>
                     </div>
                   </div>
                 ))}
