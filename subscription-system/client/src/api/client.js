@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-export const AUTH_UNAUTHORIZED_EVENT = 'brightloop:unauthorized';
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const apiClient = axios.create({
@@ -29,7 +27,11 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+      // Token expired or invalid
+      if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+        localStorage.removeItem('brightloop_token');
+        localStorage.removeItem('brightloop_user');
+      }
     }
     return Promise.reject(error);
   }

@@ -32,10 +32,5 @@ export const authService = {
   async getStaff() {
     const res = await apiClient.get('/auth/staff');
     return res.data;
-  },
-
-  async createStaff(data) {
-    const res = await apiClient.post('/auth/staff', data);
-    return res.data;
   }
 };

@@ -13,6 +13,5 @@ router.post('/reset-password', AuthController.resetPassword);
 // Authenticated routes
 router.get('/me', authenticateToken, AuthController.getMe);
 router.get('/staff', authenticateToken, requireAdmin, AuthController.getStaff);
-router.post('/staff', authenticateToken, requireAdmin, AuthController.createStaff);
 
 module.exports = router;
