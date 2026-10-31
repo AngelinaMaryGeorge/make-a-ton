@@ -2,27 +2,96 @@ const db = require('../config/db');
 
 const CustomerModel = {
   async findById(id) {
-    const res = await db.query('SELECT id, name, email, role, company, phone, created_at FROM customers WHERE id = $1', [id]);
-    return res.rows[0] || null;
+    if (db.isSupabase()) {
+      const { data, error } = await db.getSupabase()
+        .from('customers')
+        .select('id, email, role, created_at')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !data) return null;
+      return {
+        ...data,
+        name: data.email.split('@')[0],
+        company: ''
+      };
+    }
+
+    const res = await db.query('SELECT id, email, role, created_at FROM customers WHERE id = $1', [id]);
+    if (res.rows.length === 0) return null;
+    const r = res.rows[0];
+    return {
+      ...r,
+      name: r.email.split('@')[0],
+      company: ''
+    };
   },
 
   async findByEmail(email) {
-    const res = await db.query('SELECT * FROM customers WHERE email = $1', [email.toLowerCase().trim()]);
-    return res.rows[0] || null;
+    const cleanEmail = email.toLowerCase().trim();
+    if (db.isSupabase()) {
+      const { data, error } = await db.getSupabase()
+        .from('customers')
+        .select('*')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      if (error || !data) return null;
+      return {
+        ...data,
+        name: data.email.split('@')[0],
+        company: ''
+      };
+    }
+
+    const res = await db.query('SELECT * FROM customers WHERE email = $1', [cleanEmail]);
+    if (res.rows.length === 0) return null;
+    const r = res.rows[0];
+    return {
+      ...r,
+      name: r.email.split('@')[0],
+      company: ''
+    };
   },
 
-  async create({ name, email, passwordHash, role = 'customer', company = '', phone = '' }) {
+  async create({ email, passwordHash, role = 'customer' }) {
+    const cleanEmail = email.toLowerCase().trim();
+    if (db.isSupabase()) {
+      const { data, error } = await db.getSupabase()
+        .from('customers')
+        .insert([{ email: cleanEmail, password_hash: passwordHash, role }])
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return {
+        ...data,
+        name: data.email.split('@')[0],
+        company: ''
+      };
+    }
+
     const res = await db.query(
-      `INSERT INTO customers (name, email, password_hash, role, company, phone)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [name, email.toLowerCase().trim(), passwordHash, role, company, phone]
+      'INSERT INTO customers (email, password_hash, role) VALUES ($1, $2, $3)',
+      [cleanEmail, passwordHash, role]
     );
-    const newId = res.lastID || (await this.findByEmail(email))?.id;
+    const newId = res.lastID || (await this.findByEmail(cleanEmail))?.id;
     return this.findById(newId);
   },
 
   async getAll(roleFilter = null) {
-    let sql = 'SELECT id, name, email, role, company, phone, created_at FROM customers';
+    if (db.isSupabase()) {
+      let query = db.getSupabase().from('customers').select('id, email, role, created_at');
+      if (roleFilter) {
+        query = query.eq('role', roleFilter);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data || []).map(c => ({
+        ...c,
+        name: c.email.split('@')[0],
+        company: ''
+      }));
+    }
+
+    let sql = 'SELECT id, email, role, created_at FROM customers';
     const params = [];
     if (roleFilter) {
       sql += ' WHERE role = $1';
@@ -30,28 +99,28 @@ const CustomerModel = {
     }
     sql += ' ORDER BY created_at DESC';
     const res = await db.query(sql, params);
-    return res.rows;
+    return res.rows.map(c => ({
+      ...c,
+      name: c.email.split('@')[0],
+      company: ''
+    }));
   },
 
-  async updateResetToken(email, token, expiresAt) {
-    await db.query(
-      'UPDATE customers SET reset_token = $1, reset_token_expires = $2 WHERE email = $3',
-      [token, expiresAt, email.toLowerCase().trim()]
-    );
-  },
+  async resetPassword(email, newPasswordHash) {
+    const cleanEmail = email.toLowerCase().trim();
+    if (db.isSupabase()) {
+      const { error } = await db.getSupabase()
+        .from('customers')
+        .update({ password_hash: newPasswordHash })
+        .eq('email', cleanEmail);
+      return !error;
+    }
 
-  async resetPasswordWithToken(token, newPasswordHash) {
     const res = await db.query(
-      'SELECT id FROM customers WHERE reset_token = $1 AND reset_token_expires > CURRENT_TIMESTAMP',
-      [token]
+      'UPDATE customers SET password_hash = $1 WHERE email = $2',
+      [newPasswordHash, cleanEmail]
     );
-    if (res.rows.length === 0) return false;
-    const customerId = res.rows[0].id;
-    await db.query(
-      'UPDATE customers SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
-      [newPasswordHash, customerId]
-    );
-    return true;
+    return res.rowCount > 0;
   }
 };
 

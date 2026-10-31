@@ -1,14 +1,63 @@
 const db = require('../config/db');
+const CustomerModel = require('./customer.model');
 
 const InvoiceModel = {
+  formatInvoice(inv, customer = null) {
+    const today = new Date().toISOString().split('T')[0];
+    const isOverdue = inv.status !== 'Paid' && inv.due_date < today;
+    const invNumber = `INV-${new Date().getFullYear()}-${String(inv.id).padStart(4, '0')}`;
+    const total = parseFloat(inv.total_amount || 0);
+    const isPaid = inv.status === 'Paid';
+
+    return {
+      ...inv,
+      invoice_number: invNumber,
+      customer_name: customer?.name || customer?.email?.split('@')[0] || `Customer #${inv.customer_id}`,
+      customer_email: customer?.email || '',
+      subtotal: parseFloat(inv.subtotal || total * 0.82),
+      tax_amount: parseFloat(inv.tax_amount || total * 0.18),
+      discount_amount: 0,
+      total_amount: total,
+      amount_paid: isPaid ? total : 0,
+      amount_due: isPaid ? 0 : total,
+      is_overdue: isOverdue,
+      items: [
+        {
+          description: 'Subscription Recurring Fee',
+          quantity: 1,
+          unit_price: parseFloat(inv.subtotal || total),
+          tax_rate: 18.00,
+          total_amount: total
+        }
+      ]
+    };
+  },
+
   async getAll(filters = {}) {
+    if (db.isSupabase()) {
+      let query = db.getSupabase().from('invoices').select('*');
+      if (filters.status) query = query.eq('status', filters.status);
+      if (filters.customer_id) query = query.eq('customer_id', filters.customer_id);
+      if (filters.subscription_id) query = query.eq('subscription_id', filters.subscription_id);
+
+      const { data: invoices, error } = await query.order('id', { ascending: false });
+      if (error) throw new Error(error.message);
+
+      const customers = await CustomerModel.getAll();
+      const custMap = {};
+      customers.forEach(c => custMap[c.id] = c);
+
+      let list = (invoices || []).map(inv => this.formatInvoice(inv, custMap[inv.customer_id]));
+      if (filters.overdue) {
+        list = list.filter(i => i.is_overdue);
+      }
+      return list;
+    }
+
     let sql = `
-      SELECT i.*, 
-             c.name as customer_name, c.email as customer_email, c.company as customer_company,
-             s.subscription_number
+      SELECT i.*, c.email as customer_email
       FROM invoices i
       JOIN customers c ON i.customer_id = c.id
-      LEFT JOIN subscriptions s ON i.subscription_id = s.id
     `;
     const params = [];
     const conditions = [];
@@ -35,106 +84,71 @@ const InvoiceModel = {
     sql += ' ORDER BY i.id DESC';
 
     const res = await db.query(sql, params);
-    const invoices = res.rows.map(this.formatInvoice);
-
-    for (const inv of invoices) {
-      const itemsRes = await db.query('SELECT * FROM invoice_items WHERE invoice_id = $1', [inv.id]);
-      inv.items = itemsRes.rows.map(item => ({
-        ...item,
-        unit_price: parseFloat(item.unit_price),
-        tax_rate: parseFloat(item.tax_rate),
-        discount_applied: parseFloat(item.discount_applied || 0),
-        total_amount: parseFloat(item.total_amount)
-      }));
-    }
-    return invoices;
+    return res.rows.map(r => this.formatInvoice(r, { email: r.customer_email }));
   },
 
   async findById(id) {
+    if (db.isSupabase()) {
+      const { data: inv, error } = await db.getSupabase()
+        .from('invoices')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !inv) return null;
+      const cust = await CustomerModel.findById(inv.customer_id);
+      return this.formatInvoice(inv, cust);
+    }
+
     const res = await db.query(`
-      SELECT i.*, 
-             c.name as customer_name, c.email as customer_email, c.company as customer_company, c.phone as customer_phone,
-             s.subscription_number, s.payment_terms
+      SELECT i.*, c.email as customer_email
       FROM invoices i
       JOIN customers c ON i.customer_id = c.id
-      LEFT JOIN subscriptions s ON i.subscription_id = s.id
       WHERE i.id = $1
     `, [id]);
 
     if (res.rows.length === 0) return null;
-    const inv = this.formatInvoice(res.rows[0]);
-
-    const itemsRes = await db.query('SELECT * FROM invoice_items WHERE invoice_id = $1', [id]);
-    inv.items = itemsRes.rows.map(item => ({
-      ...item,
-      unit_price: parseFloat(item.unit_price),
-      tax_rate: parseFloat(item.tax_rate),
-      discount_applied: parseFloat(item.discount_applied || 0),
-      total_amount: parseFloat(item.total_amount)
-    }));
-
-    const paymentsRes = await db.query('SELECT * FROM payments WHERE invoice_id = $1 ORDER BY payment_date DESC', [id]);
-    inv.payments = paymentsRes.rows.map(p => ({
-      ...p,
-      amount: parseFloat(p.amount)
-    }));
-
-    return inv;
+    return this.formatInvoice(res.rows[0], { email: res.rows[0].customer_email });
   },
 
-  formatInvoice(inv) {
-    const today = new Date().toISOString().split('T')[0];
-    const isOverdue = inv.status !== 'Paid' && inv.due_date < today;
-    return {
-      ...inv,
-      subtotal: parseFloat(inv.subtotal),
-      tax_amount: parseFloat(inv.tax_amount),
-      discount_amount: parseFloat(inv.discount_amount || 0),
-      total_amount: parseFloat(inv.total_amount),
-      amount_paid: parseFloat(inv.amount_paid || 0),
-      amount_due: parseFloat(inv.amount_due),
-      is_overdue: isOverdue
-    };
-  },
+  async create({ subscription_id = null, customer_id, status = 'Confirmed', subtotal = 0, tax_amount = 0, total_amount, due_date }) {
+    const due = due_date || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
 
-  async create({ subscription_id = null, customer_id, status = 'Draft', billing_period_start = null, billing_period_end = null, due_date, subtotal = 0, tax_amount = 0, discount_amount = 0, total_amount, items = [] }) {
-    const countRes = await db.query('SELECT COUNT(*) as count FROM invoices');
-    const seq = parseInt(countRes.rows[0]?.count || 0) + 1;
-    const invoice_number = `INV-${new Date().getFullYear()}-${String(seq).padStart(4, '0')}`;
-
-    const amount_due = total_amount;
-
-    const res = await db.query(`
-      INSERT INTO invoices (invoice_number, subscription_id, customer_id, status, billing_period_start, billing_period_end, due_date, subtotal, tax_amount, discount_amount, total_amount, amount_paid, amount_due)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0.00, $12)
-    `, [invoice_number, subscription_id, customer_id, status, billing_period_start, billing_period_end, due_date, subtotal, tax_amount, discount_amount, total_amount, amount_due]);
-
-    const invoiceId = res.lastID;
-
-    for (const item of items) {
-      await db.query(`
-        INSERT INTO invoice_items (invoice_id, product_id, description, quantity, unit_price, tax_rate, discount_applied, total_amount)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      `, [
-        invoiceId,
-        item.product_id || null,
-        item.description || 'Subscription Line Item',
-        item.quantity || 1,
-        item.unit_price,
-        item.tax_rate || 18.00,
-        item.discount_applied || 0.00,
-        item.total_amount
-      ]);
+    if (db.isSupabase()) {
+      const { data, error } = await db.getSupabase()
+        .from('invoices')
+        .insert([{
+          subscription_id: subscription_id ? parseInt(subscription_id) : null,
+          customer_id: parseInt(customer_id),
+          status,
+          subtotal: parseFloat(subtotal),
+          tax_amount: parseFloat(tax_amount),
+          total_amount: parseFloat(total_amount),
+          due_date: due
+        }])
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return this.findById(data.id);
     }
 
-    return this.findById(invoiceId);
+    const res = await db.query(`
+      INSERT INTO invoices (subscription_id, customer_id, status, subtotal, tax_amount, total_amount, due_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [subscription_id, customer_id, status, subtotal, tax_amount, total_amount, due]);
+
+    return this.findById(res.lastID);
   },
 
   async updateStatus(id, newStatus) {
-    const valid = ['Draft', 'Confirmed', 'Paid', 'Cancelled'];
-    if (!valid.includes(newStatus)) {
-      throw new Error(`Invalid invoice status: ${newStatus}`);
+    if (db.isSupabase()) {
+      const { error } = await db.getSupabase()
+        .from('invoices')
+        .update({ status: newStatus })
+        .eq('id', id);
+      if (error) throw new Error(error.message);
+      return this.findById(id);
     }
+
     await db.query('UPDATE invoices SET status = $1 WHERE id = $2', [newStatus, id]);
     return this.findById(id);
   }

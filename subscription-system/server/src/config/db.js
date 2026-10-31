@@ -1,37 +1,46 @@
 const fs = require('fs');
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const { createClient } = require('@supabase/supabase-js');
 
-let pool = null;
+let supabaseClient = null;
 let sqliteDb = null;
-let isPostgres = false;
+let isSupabaseActive = false;
 
 const DB_PATH = path.join(__dirname, '../../database/brightloop.sqlite');
 const MIGRATION_PATH = path.join(__dirname, '../../database/migrations/001_initial_schema.sql');
 const SEED_PATH = path.join(__dirname, '../../database/seeds/initial_seed.sql');
 
-// Initialize database
 async function initDb() {
-  const databaseUrl = process.env.DATABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL?.trim();
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)?.trim();
 
-  // Try PostgreSQL if DATABASE_URL or DB_HOST is explicitly configured and not default dummy
-  if (databaseUrl && !databaseUrl.includes('postgres:postgres@localhost:5432')) {
+  // 1. Check if Supabase credentials are provided
+  if (supabaseUrl && supabaseKey && supabaseUrl.startsWith('http')) {
     try {
-      const { Pool } = require('pg');
-      pool = new Pool({ connectionString: databaseUrl, ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false });
-      const client = await pool.connect();
-      client.release();
-      isPostgres = true;
-      console.log('✅ Connected to PostgreSQL database');
-      await runPostgresMigrations();
-      await seedDefaultUsers();
+      supabaseClient = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+
+      // Test connectivity by querying customers table
+      const { data, error } = await supabaseClient.from('customers').select('id').limit(1);
+      if (error && error.code !== 'PGRST116') {
+        console.warn('⚠️ Supabase test query notice:', error.message);
+      }
+
+      isSupabaseActive = true;
+      console.log(`✅ Connected to Supabase at: ${supabaseUrl}`);
+      await seedDefaultSupabaseData();
       return;
     } catch (err) {
-      console.warn('⚠️ PostgreSQL connection failed, falling back to embedded SQLite:', err.message);
+      console.warn('⚠️ Supabase connection failed, falling back to embedded SQLite:', err.message);
     }
   }
 
-  // SQLite Fallback
+  // 2. Fallback to embedded SQLite
   await initSqlite();
 }
 
@@ -69,74 +78,63 @@ function runSqliteMigrations() {
         console.error('Migration error:', err);
         return reject(err);
       }
-      console.log('✅ SQLite schema migration applied.');
-
-      if (fs.existsSync(SEED_PATH)) {
-        const seedSql = fs.readFileSync(SEED_PATH, 'utf8');
-        sqliteDb.exec(seedSql, (seedErr) => {
-          if (seedErr) {
-            console.warn('Seed execution note:', seedErr.message);
-          } else {
-            console.log('✅ Initial seeds inserted.');
-          }
-          resolve();
-        });
-      } else {
-        resolve();
-      }
+      resolve();
     });
   });
 }
 
-async function runPostgresMigrations() {
-  if (!fs.existsSync(MIGRATION_PATH)) return;
-  let sql = fs.readFileSync(MIGRATION_PATH, 'utf8');
-  // Adjust AUTOINCREMENT and DATETIME for PG
-  sql = sql
-    .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY')
-    .replace(/DATETIME/gi, 'TIMESTAMP')
-    .replace(/INSERT OR IGNORE/gi, 'INSERT')
-    .replace(/BOOLEAN DEFAULT 0/gi, 'BOOLEAN DEFAULT FALSE')
-    .replace(/BOOLEAN DEFAULT 1/gi, 'BOOLEAN DEFAULT TRUE');
-  
+async function seedDefaultSupabaseData() {
   try {
-    await pool.query(sql);
-    console.log('✅ PostgreSQL schema migrations applied.');
+    const { data: existingAdmin } = await supabaseClient
+      .from('customers')
+      .select('id')
+      .eq('email', 'admin@brightloop.com')
+      .maybeSingle();
+
+    if (!existingAdmin) {
+      const adminHash = await bcrypt.hash('AdminPass1!', 10);
+      const staffHash = await bcrypt.hash('SecurePass1!', 10);
+      const custHash = await bcrypt.hash('SecurePass1!', 10);
+
+      await supabaseClient.from('customers').insert([
+        { email: 'admin@brightloop.com', password_hash: adminHash, role: 'admin' },
+        { email: 'staff@brightloop.com', password_hash: staffHash, role: 'staff' },
+        { email: 'customer@example.com', password_hash: custHash, role: 'customer' }
+      ]);
+    }
+
+    // Check if products exist
+    const { data: prods } = await supabaseClient.from('products').select('id').limit(1);
+    if (!prods || prods.length === 0) {
+      await supabaseClient.from('products').insert([
+        {
+          name: 'ERP Cloud Suite',
+          type: 'software',
+          sales_price: 1000.00,
+          cost_price: 200.00,
+          variant_metadata: [{ brand: 'Odoo', price_modifier: 560 }, { brand: 'Standard', price_modifier: 0 }],
+          notes: 'Flagship cloud enterprise resource planning suite'
+        },
+        {
+          name: 'Analytics AI Pro',
+          type: 'add-on',
+          sales_price: 350.00,
+          cost_price: 50.00,
+          variant_metadata: [{ tier: 'Pro', price_modifier: 150 }],
+          notes: 'Advanced business intelligence engine'
+        }
+      ]);
+    }
   } catch (err) {
-    console.warn('PG migration warning (tables may already exist):', err.message);
+    console.warn('Supabase initial seed notice:', err.message);
   }
 }
 
 async function seedDefaultUsers() {
   const users = [
-    {
-      name: 'System Admin',
-      email: 'admin@brightloop.com',
-      password: 'AdminPass1!',
-      role: 'admin',
-      company: 'Brightloop Software'
-    },
-    {
-      name: 'Sarah Staff',
-      email: 'staff@brightloop.com',
-      password: 'SecurePass1!',
-      role: 'staff',
-      company: 'Brightloop Internal'
-    },
-    {
-      name: 'Acme Corporation',
-      email: 'customer@example.com',
-      password: 'SecurePass1!',
-      role: 'customer',
-      company: 'Acme Corp'
-    },
-    {
-      name: 'Zenith Labs',
-      email: 'zenith@example.com',
-      password: 'SecurePass1!',
-      role: 'customer',
-      company: 'Zenith Labs Ltd'
-    }
+    { email: 'admin@brightloop.com', password: 'AdminPass1!', role: 'admin' },
+    { email: 'staff@brightloop.com', password: 'SecurePass1!', role: 'staff' },
+    { email: 'customer@example.com', password: 'SecurePass1!', role: 'customer' }
   ];
 
   for (const u of users) {
@@ -144,116 +142,71 @@ async function seedDefaultUsers() {
     if (existing.rows.length === 0) {
       const hash = await bcrypt.hash(u.password, 10);
       await query(
-        'INSERT INTO customers (name, email, password_hash, role, company) VALUES ($1, $2, $3, $4, $5)',
-        [u.name, u.email, hash, u.role, u.company]
+        'INSERT INTO customers (email, password_hash, role) VALUES ($1, $2, $3)',
+        [u.email, hash, u.role]
       );
     }
   }
 
-  // Seed sample active and draft subscriptions if none exist
-  const existingSub = await query('SELECT id FROM subscriptions LIMIT 1');
-  if (existingSub.rows.length === 0) {
-    // Subscription 1: Active
-    const subRes = await query(
-      `INSERT INTO subscriptions (subscription_number, customer_id, plan_id, status, start_date, expiry_date, next_billing_date, payment_terms, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        'SUB-2026-0001',
-        3, // Acme Corp
-        1, // ERP Cloud Monthly
-        'Active',
-        '2026-01-01',
-        '2027-01-01',
-        '2026-04-01',
-        'Net 30',
-        'Acme Enterprise ERP setup with Odoo brand variant'
-      ]
-    );
+  // Seed sample products if none
+  const existingProd = await query('SELECT id FROM products LIMIT 1');
+  if (existingProd.rows.length === 0) {
+    await query(`
+      INSERT INTO products (name, type, sales_price, cost_price, variant_metadata, notes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [
+      'ERP Cloud Suite',
+      'software',
+      1000.00,
+      200.00,
+      JSON.stringify([{ brand: 'Odoo', price_modifier: 560 }, { brand: 'Standard', price_modifier: 0 }]),
+      'Flagship cloud ERP'
+    ]);
 
-    const subId = subRes.lastID || 1;
-    await query(
-      `INSERT INTO subscription_items (subscription_id, product_id, variant_id, variant_name, quantity, unit_price, tax_rate, amount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [subId, 1, 1, 'Odoo (+560)', 2, 1560.00, 18.00, 3120.00]
-    );
+    await query(`
+      INSERT INTO plans (product_id, billing_frequency, min_quantity, start_date, end_date, auto_close, allow_pause)
+      VALUES (1, 'monthly', 1, '2026-01-01', '2027-12-31', 0, 1)
+    `);
 
-    // Initial Invoice for Subscription 1 (Paid)
-    const invRes = await query(
-      `INSERT INTO invoices (invoice_number, subscription_id, customer_id, status, billing_period_start, billing_period_end, due_date, subtotal, tax_amount, discount_amount, total_amount, amount_paid, amount_due)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-      [
-        'INV-2026-0001',
-        subId,
-        3,
-        'Paid',
-        '2026-01-01',
-        '2026-01-31',
-        '2026-01-31',
-        3120.00,
-        561.60,
-        0.00,
-        3681.60,
-        3681.60,
-        0.00
-      ]
-    );
+    await query(`
+      INSERT INTO subscriptions (subscription_number, customer_id, plan_id, status, start_date, expiry_date, payment_terms)
+      VALUES ('SUB-2026-0001', 3, 1, 'Active', '2026-01-01', '2027-01-01', 'Net 30')
+    `);
 
-    const invId = invRes.lastID || 1;
-    await query(
-      `INSERT INTO invoice_items (invoice_id, product_id, description, quantity, unit_price, tax_rate, total_amount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [invId, 1, 'ERP Cloud Suite - Odoo Brand (Qty: 2)', 2, 1560.00, 18.00, 3681.60]
-    );
+    await query(`
+      INSERT INTO invoices (subscription_id, customer_id, status, subtotal, tax_amount, total_amount, due_date)
+      VALUES (1, 3, 'Paid', 1560.00, 280.80, 1840.80, '2026-01-31')
+    `);
 
-    await query(
-      `INSERT INTO payments (payment_number, invoice_id, amount, method, notes, recorded_by)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      ['PAY-2026-0001', invId, 3681.60, 'bank_transfer', 'Wire transfer ref #WT-88910', 1]
-    );
+    await query(`
+      INSERT INTO payments (invoice_id, amount, method, notes)
+      VALUES (1, 1840.80, 'bank_transfer', 'Payment ref #WT-88910')
+    `);
+  }
 
-    // Sample Invoice 2: Confirmed / Outstanding
-    const inv2Res = await query(
-      `INSERT INTO invoices (invoice_number, subscription_id, customer_id, status, billing_period_start, billing_period_end, due_date, subtotal, tax_amount, discount_amount, total_amount, amount_paid, amount_due)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-      [
-        'INV-2026-0002',
-        subId,
-        3,
-        'Confirmed',
-        '2026-02-01',
-        '2026-02-28',
-        '2026-02-28',
-        3120.00,
-        561.60,
-        200.00,
-        3481.60,
-        0.00,
-        3481.60
-      ]
-    );
-
-    const inv2Id = inv2Res.lastID || 2;
-    await query(
-      `INSERT INTO invoice_items (invoice_id, product_id, description, quantity, unit_price, tax_rate, discount_applied, total_amount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [inv2Id, 1, 'ERP Cloud Suite - Odoo Brand (Qty: 2) [Less Discount $200]', 2, 1560.00, 18.00, 200.00, 3481.60]
-    );
+  // Seed default discounts if table exists and is empty
+  try {
+    const existingDisc = await query('SELECT id FROM discounts LIMIT 1');
+    if (existingDisc.rows.length === 0) {
+      await query(`
+        INSERT INTO discounts (code, name, type, amount, min_purchase, min_quantity, usage_limit, used_count, start_date, end_date, is_active)
+        VALUES 
+        ('GROWTH15', '15% Volume Seat Discount', 'percentage', 15.00, 2000.00, 5, 100, 3, '2026-01-01', '2027-12-31', 1),
+        ('WELCOME200', 'Flat $200 First Plan Credit', 'fixed', 200.00, 1000.00, 1, 50, 12, '2026-01-01', '2027-12-31', 1)
+      `);
+    }
+  } catch (e) {
+    // discounts table might not exist in plain schema
   }
 }
 
-// Unified query wrapper supporting $1, $2 or ?
+// Unified query wrapper supporting SQLite
 function query(text, params = []) {
-  if (isPostgres && pool) {
-    return pool.query(text, params);
-  }
-
-  // SQLite execution
   return new Promise((resolve, reject) => {
     if (!sqliteDb) {
       return reject(new Error('SQLite database not initialized yet.'));
     }
 
-    // Convert PostgreSQL $1, $2... style parameters to ? for SQLite
     const sqliteSql = text.replace(/\$(\d+)/g, '?');
     const isSelect = /^\s*(SELECT|PRAGMA)/i.test(sqliteSql);
 
@@ -278,5 +231,6 @@ function query(text, params = []) {
 module.exports = {
   initDb,
   query,
-  isPostgres: () => isPostgres
+  getSupabase: () => supabaseClient,
+  isSupabase: () => isSupabaseActive
 };
