@@ -45,7 +45,10 @@ describe('Recurring Billing Engine Integration Tests', () => {
 
     const firstInvoice = invoices[0];
     assert.strictEqual(firstInvoice.status, 'Confirmed', 'Generated invoice should start in Confirmed status');
+    assert.ok(firstInvoice.invoice_number, 'Generated invoice should have an invoice number');
     assert.ok(firstInvoice.total_amount > 0, 'Invoice total amount should be calculated');
+    assert.strictEqual(firstInvoice.amount_paid, 0, 'New invoice should have no payments recorded');
+    assert.strictEqual(firstInvoice.amount_due, firstInvoice.total_amount, 'New invoice balance should equal its total');
 
     // Run second billing cycle on the SAME date to verify duplicate prevention
     const result2 = await BillingScheduler.runBillingCycle(today);

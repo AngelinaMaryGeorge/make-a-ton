@@ -1,11 +1,12 @@
 const db = require('../config/db');
 const CustomerModel = require('./customer.model');
+const crypto = require('crypto');
 
 const InvoiceModel = {
   formatInvoice(inv, customer = null) {
     const today = new Date().toISOString().split('T')[0];
     const isOverdue = inv.status !== 'Paid' && inv.due_date < today;
-    const invNumber = `INV-${new Date().getFullYear()}-${String(inv.id).padStart(4, '0')}`;
+    const invNumber = inv.invoice_number || `INV-${new Date().getFullYear()}-${String(inv.id).padStart(4, '0')}`;
     const total = parseFloat(inv.total_amount || 0);
     const isPaid = inv.status === 'Paid';
 
@@ -112,17 +113,21 @@ const InvoiceModel = {
 
   async create({ subscription_id = null, customer_id, status = 'Confirmed', subtotal = 0, tax_amount = 0, total_amount, due_date }) {
     const due = due_date || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
     if (db.isSupabase()) {
       const { data, error } = await db.getSupabase()
         .from('invoices')
         .insert([{
+          invoice_number: invoiceNumber,
           subscription_id: subscription_id ? parseInt(subscription_id) : null,
           customer_id: parseInt(customer_id),
           status,
           subtotal: parseFloat(subtotal),
           tax_amount: parseFloat(tax_amount),
           total_amount: parseFloat(total_amount),
+          amount_paid: 0,
+          amount_due: parseFloat(total_amount),
           due_date: due
         }])
         .select()
@@ -132,9 +137,9 @@ const InvoiceModel = {
     }
 
     const res = await db.query(`
-      INSERT INTO invoices (subscription_id, customer_id, status, subtotal, tax_amount, total_amount, due_date)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `, [subscription_id, customer_id, status, subtotal, tax_amount, total_amount, due]);
+      INSERT INTO invoices (invoice_number, subscription_id, customer_id, status, subtotal, tax_amount, total_amount, amount_paid, amount_due, due_date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [invoiceNumber, subscription_id, customer_id, status, subtotal, tax_amount, total_amount, 0, total_amount, due]);
 
     return this.findById(res.lastID);
   },
