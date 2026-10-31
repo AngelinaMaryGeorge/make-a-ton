@@ -1,0 +1,24 @@
+{
+  "name": "brightloop-subscription-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unified Subscription Management System for Brightloop Software (Odoo x Make-A-Ton 9.0)",
+  "workspaces": [
+    "subscription-system/server",
+    "subscription-system/client"
+  ],
+  "scripts": {
+    "server": "npm run dev --prefix subscription-system/server",
+    "client": "npm run dev --prefix subscription-system/client",
+    "test": "npm run test --prefix subscription-system/server",
+    "seed": "npm run seed --prefix subscription-system/server"
+  },
+  "keywords": [
+    "subscription-management",
+    "recurring-billing",
+    "odoo",
+    "brightloop"
+  ],
+  "author": "Brightloop Team",
+  "license": "ISC"
+}
